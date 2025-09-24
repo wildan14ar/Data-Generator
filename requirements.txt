@@ -1,0 +1,4 @@
+faker
+pandas
+sqlalchemy
+pyarrow    # untuk parquet

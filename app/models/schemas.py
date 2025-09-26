@@ -16,33 +16,8 @@ class ExportFormat(str, Enum):
     parquet = "parquet"
 
 
+
 class GenerateRequest(BaseModel):
-    """Request model for data generation."""
-
-    data_schema: Dict[str, Any] = Field(
-        ..., description="JSON Schema for data generation", alias="schema"
-    )
-    count: int = Field(10, ge=1, le=100000, description="Number of records to generate")
-    model_name: Optional[str] = Field("Data", description="Model name for referencing")
-    seed: Optional[int] = Field(
-        None, description="Random seed for reproducible results"
-    )
-    format: ExportFormat = Field(ExportFormat.json, description="Export format")
-
-    class Config:
-        populate_by_name = True
-
-    @validator("data_schema")
-    def validate_schema(cls, v):
-        """Validate that schema has required properties."""
-        if not isinstance(v, dict):
-            raise ValueError("Schema must be a dictionary")
-        if "type" not in v:
-            raise ValueError("Schema must have a 'type' property")
-        return v
-
-
-class GenerateMultiTableRequest(BaseModel):
     """Request model for generating multiple tables with relations."""
 
     schemas: Dict[str, Dict[str, Any]] = Field(
@@ -99,20 +74,7 @@ class GenerateMultiTableRequest(BaseModel):
 
         return v
 
-
 class GenerateResponse(BaseModel):
-    """Response model for data generation."""
-
-    success: bool = Field(True, description="Whether the operation succeeded")
-    data: List[Dict[str, Any]] = Field(..., description="Generated data")
-    count: int = Field(..., description="Number of records generated")
-    model_name: Optional[str] = Field(None, description="Model name used")
-    seed: Optional[int] = Field(None, description="Seed used for generation")
-    format: str = Field(..., description="Format of the data")
-    message: str = Field("Data generated successfully", description="Status message")
-
-
-class GenerateMultiTableResponse(BaseModel):
     """Response model for multiple table generation."""
 
     success: bool = Field(True, description="Whether the operation succeeded")

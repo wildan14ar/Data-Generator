@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import generate, database
+from app.route import router
 from app.models.schemas import (
     HealthResponse, StatsResponse,
     SchemaValidationRequest, SchemaValidationResponse
@@ -82,8 +82,7 @@ def create_app() -> FastAPI:
     setup_exception_handlers(app)
     
     # Include API routers with prefix
-    app.include_router(generate.router)
-    app.include_router(database.router)
+    app.include_router(router)
     
     # System endpoints (health, stats) - directly in main app
     @app.get("/health", response_model=HealthResponse, tags=["System"])

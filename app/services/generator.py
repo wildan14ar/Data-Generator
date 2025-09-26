@@ -243,57 +243,7 @@ def normalize_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
     return normalized
 
 
-def generate_data(schema: Dict[str, Any], count: int, model_name: Optional[str] = None, seed: Optional[int] = None) -> List[Dict[str, Any]]:
-    """Generate multiple data records from schema.
-    
-    Args:
-        schema: JSON schema dictionary (supports both generator and introspector formats)
-        count: Number of records to generate
-        model_name: Optional model name for referencing
-        seed: Optional random seed for reproducible results
-        
-    Returns:
-        List of generated data records
-        
-    Raises:
-        GenerationError: If parameters are invalid
-    """
-    if count <= 0:
-        raise GenerationError("Count harus lebih besar dari 0")
-    
-    if seed is not None:
-        random.seed(seed)
-        Faker.seed(seed)
-        logger.info(f"Using seed: {seed}")
-
-    # Normalize schema to handle introspector format
-    normalized_schema = normalize_schema(schema)
-    logger.info(f"Generating {count} records{' for model ' + model_name if model_name else ''}")
-    
-    try:
-        data = []
-        for i in range(count):
-            try:
-                record = generate_sample(normalized_schema, model_name)
-                data.append(record)
-            except Exception as e:
-                logger.error(f"Error generating record {i+1}: {e}")
-                raise GenerationError(f"Error generating record {i+1}: {e}")
-        
-        if model_name:
-            _ref_cache[model_name] = data
-            logger.info(f"Cached {len(data)} records for model {model_name}")
-            
-        return data
-        
-    except GenerationError:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to generate data: {e}")
-        raise GenerationError(f"Failed to generate data: {e}")
-
-
-def generate_multi_table_data(
+def generate_data(
     schemas: Dict[str, Dict[str, Any]], 
     counts: Dict[str, int], 
     seed: Optional[int] = None

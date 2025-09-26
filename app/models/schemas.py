@@ -16,8 +16,40 @@ class ExportFormat(str, Enum):
     parquet = "parquet"
 
 
+class HealthResponse(BaseModel):
+    """Health check response."""
 
-class GenerateRequest(BaseModel):
+    status: str = Field("healthy", description="Service health status")
+    timestamp: str = Field(..., description="Current timestamp")
+    version: str = Field("1.0.0", description="API version")
+    uptime: str = Field(..., description="Service uptime")
+
+
+class StatsResponse(BaseModel):
+    """Statistics response for generation operations."""
+
+    total_requests: int = Field(0, description="Total generation requests")
+    total_records_generated: int = Field(0, description="Total records generated")
+    popular_formats: Dict[str, int] = Field(
+        default_factory=dict, description="Usage by format"
+    )
+    average_generation_time: float = Field(
+        0.0, description="Average generation time in seconds"
+    )
+    uptime_hours: float = Field(0.0, description="Service uptime in hours")
+
+
+class ErrorResponse(BaseModel):
+    """Error response model."""
+
+    success: bool = Field(False, description="Always false for errors")
+    error: str = Field(..., description="Error message")
+    details: Optional[str] = Field(None, description="Detailed error information")
+    error_type: str = Field("GeneralError", description="Type of error")
+    status_code: int = Field(400, description="HTTP status code")
+
+
+class DataGenerateRequest(BaseModel):
     """Request model for generating multiple tables with relations."""
 
     schemas: Dict[str, Dict[str, Any]] = Field(
@@ -74,7 +106,8 @@ class GenerateRequest(BaseModel):
 
         return v
 
-class GenerateResponse(BaseModel):
+
+class DataGenerateResponse(BaseModel):
     """Response model for multiple table generation."""
 
     success: bool = Field(True, description="Whether the operation succeeded")
@@ -91,68 +124,6 @@ class GenerateResponse(BaseModel):
     message: str = Field(
         "Multi-table data generated successfully", description="Status message"
     )
-
-
-class SchemaValidationRequest(BaseModel):
-    """Request model for schema validation."""
-
-    data_schema: Dict[str, Any] = Field(
-        ..., description="JSON Schema to validate", alias="schema"
-    )
-
-    class Config:
-        populate_by_name = True
-
-
-class SchemaValidationResponse(BaseModel):
-    """Response model for schema validation."""
-
-    success: bool = Field(True, description="Whether validation succeeded")
-    valid: bool = Field(..., description="Whether the schema is valid")
-    errors: List[str] = Field(default_factory=list, description="Validation errors")
-    warnings: List[str] = Field(default_factory=list, description="Validation warnings")
-    schema_type: Optional[str] = Field(None, description="Detected schema type")
-    supported_features: List[str] = Field(
-        default_factory=list, description="Supported features"
-    )
-
-
-class HealthResponse(BaseModel):
-    """Health check response."""
-
-    status: str = Field("healthy", description="Service health status")
-    timestamp: str = Field(..., description="Current timestamp")
-    version: str = Field("1.0.0", description="API version")
-    uptime: str = Field(..., description="Service uptime")
-
-
-class StatsResponse(BaseModel):
-    """Statistics response for generation operations."""
-
-    total_requests: int = Field(0, description="Total generation requests")
-    total_records_generated: int = Field(0, description="Total records generated")
-    popular_formats: Dict[str, int] = Field(
-        default_factory=dict, description="Usage by format"
-    )
-    average_generation_time: float = Field(
-        0.0, description="Average generation time in seconds"
-    )
-    uptime_hours: float = Field(0.0, description="Service uptime in hours")
-
-
-class ErrorResponse(BaseModel):
-    """Error response model."""
-
-    success: bool = Field(False, description="Always false for errors")
-    error: str = Field(..., description="Error message")
-    details: Optional[str] = Field(None, description="Detailed error information")
-    error_type: str = Field("GeneralError", description="Type of error")
-    status_code: int = Field(400, description="HTTP status code")
-
-
-# ============================================
-# Database Schema Introspection Models
-# ============================================
 
 
 class DatabaseSchemaRequest(BaseModel):

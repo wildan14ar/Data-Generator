@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
     app.state.stats = {
         "total_requests": 0,
         "total_records_generated": 0,
-        "format_usage": {"json": 0, "csv": 0, "sql": 0, "parquet": 0},
+        "format_usage": {"json": 0, "excel": 0, "sql": 0, "database": 0},
         "generation_times": [],
     }
 

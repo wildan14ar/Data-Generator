@@ -1,16 +1,22 @@
+"""
+Data generation service
+"""
+
 import random
 import re
 import logging
-from typing import Dict, List, Any, Union, Optional
+from typing import Dict, List, Any, Optional
 from faker import Faker
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
+from app.core.exceptions import GenerationError
+
+
 logger = logging.getLogger(__name__)
 
 fake = Faker()
 _unique_cache = {}  # cache untuk uniqueness
 _ref_cache = {}     # cache untuk relasi antar model
+
 
 def clear_caches():
     """Clear all internal caches."""
@@ -19,8 +25,9 @@ def clear_caches():
     _ref_cache.clear()
     fake.unique.clear()
 
+
 def generate_sample(schema: Dict[str, Any], model_name: Optional[str] = None) -> Any:
-    """Generate satu nilai dari schema.
+    """Generate single value from schema.
     
     Args:
         schema: JSON schema dictionary
@@ -30,10 +37,10 @@ def generate_sample(schema: Dict[str, Any], model_name: Optional[str] = None) ->
         Generated value based on schema
         
     Raises:
-        ValueError: If schema is invalid or reference model not found
+        GenerationError: If schema is invalid or reference model not found
     """
     if not isinstance(schema, dict):
-        raise ValueError("Schema harus berupa dictionary")
+        raise GenerationError("Schema harus berupa dictionary")
 
     # --- ENUM ---
     if "enum" in schema:
@@ -41,7 +48,7 @@ def generate_sample(schema: Dict[str, Any], model_name: Optional[str] = None) ->
 
     t = schema.get("type")
     if not t:
-        raise ValueError("Schema harus memiliki property 'type'")
+        raise GenerationError("Schema harus memiliki property 'type'")
 
     # --- String ---
     if t == "string":
@@ -90,7 +97,7 @@ def generate_sample(schema: Dict[str, Any], model_name: Optional[str] = None) ->
     # --- Array ---
     if t == "array":
         if "items" not in schema:
-            raise ValueError("Array schema harus memiliki property 'items'")
+            raise GenerationError("Array schema harus memiliki property 'items'")
             
         min_items = schema.get("minItems", 1)
         max_items = schema.get("maxItems", 3)
@@ -117,22 +124,23 @@ def generate_sample(schema: Dict[str, Any], model_name: Optional[str] = None) ->
     if t == "ref":
         ref_str = schema.get("ref")
         if not ref_str:
-            raise ValueError("Reference schema harus memiliki property 'ref'")
+            raise GenerationError("Reference schema harus memiliki property 'ref'")
             
         if "." not in ref_str:
-            raise ValueError(f"Invalid reference format: {ref_str}. Expected 'Model.field'")
+            raise GenerationError(f"Invalid reference format: {ref_str}. Expected 'Model.field'")
             
         model, field = ref_str.split(".", 1)
         if model not in _ref_cache:
-            raise ValueError(f"Model {model} belum tersedia untuk ref. Generate model {model} terlebih dahulu.")
+            raise GenerationError(f"Model {model} belum tersedia untuk ref. Generate model {model} terlebih dahulu.")
         
         available_refs = [row[field] for row in _ref_cache[model] if field in row]
         if not available_refs:
-            raise ValueError(f"Field {field} tidak ditemukan dalam model {model}")
+            raise GenerationError(f"Field {field} tidak ditemukan dalam model {model}")
             
         return random.choice(available_refs)
 
-    raise ValueError(f"Unsupported schema type: {t}")
+    raise GenerationError(f"Unsupported schema type: {t}")
+
 
 def _generate_pattern(pattern: str) -> str:
     """Generate string matching simple regex patterns.
@@ -168,7 +176,7 @@ def _generate_pattern(pattern: str) -> str:
 
 
 def generate_data(schema: Dict[str, Any], count: int, model_name: Optional[str] = None, seed: Optional[int] = None) -> List[Dict[str, Any]]:
-    """Generate banyak data dari schema.
+    """Generate multiple data records from schema.
     
     Args:
         schema: JSON schema dictionary
@@ -180,10 +188,10 @@ def generate_data(schema: Dict[str, Any], count: int, model_name: Optional[str] 
         List of generated data records
         
     Raises:
-        ValueError: If parameters are invalid
+        GenerationError: If parameters are invalid
     """
     if count <= 0:
-        raise ValueError("Count harus lebih besar dari 0")
+        raise GenerationError("Count harus lebih besar dari 0")
     
     if seed is not None:
         random.seed(seed)
@@ -200,7 +208,7 @@ def generate_data(schema: Dict[str, Any], count: int, model_name: Optional[str] 
                 data.append(record)
             except Exception as e:
                 logger.error(f"Error generating record {i+1}: {e}")
-                raise
+                raise GenerationError(f"Error generating record {i+1}: {e}")
         
         if model_name:
             _ref_cache[model_name] = data
@@ -208,6 +216,8 @@ def generate_data(schema: Dict[str, Any], count: int, model_name: Optional[str] 
             
         return data
         
+    except GenerationError:
+        raise
     except Exception as e:
         logger.error(f"Failed to generate data: {e}")
-        raise
+        raise GenerationError(f"Failed to generate data: {e}")

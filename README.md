@@ -1,21 +1,14 @@
-# 🎯 Datagen - Schema-Aware Data Generator
+# 🎯 Datagen API - Schema-Aware Data Generator
 
-Sebuah tool Python untuk generate data dummy berkualitas tinggi berdasarkan JSON Schema. Mendukung berbagai format output dan seeding langsung ke database.
+REST API untuk generate data dummy berkualitas tinggi berdasarkan JSON Schema. Mendukung berbagai format output dan seeding langsung ke database.
 
-[![Python](https://img.shields.io/badge/python-3.7+-blue.svg)](https://python.org)
+[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-## 🚀 Fitur Utama
+## 🚀 Quick Start
 
-- **Schema-driven**: Generate data berdasarkan JSON Schema dengan constraint lengkap
-- **Multi-format export**: JSON, CSV, SQL, dan Parquet
-- **Database seeding**: Langsung insert ke database (PostgreSQL, MySQL, SQLite)
-- **Relasi antar model**: Mendukung foreign key references
-- **Realistic data**: Menggunakan Faker untuk data yang realistis
-- **Reproducible**: Seed control untuk konsistensi data
-- **CLI interface**: Command line yang mudah digunakan
-
-## 📦 Instalasi
+### Installation
 
 ```bash
 # Clone repository
@@ -24,6 +17,8 @@ cd Datagen
 
 # Buat virtual environment
 python -m venv .venv
+
+# Aktivasi virtual environment
 # Windows
 .venv\Scripts\activate
 # Linux/Mac
@@ -33,247 +28,306 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## 🎯 Quick Start
-
-### 1. Buat Schema File
-
-Buat file `user_schema.json`:
-```json
-{
-  "type": "object",
-  "properties": {
-    "id": {"type": "integer", "unique": true},
-    "name": {"type": "string", "format": "name"},
-    "email": {"type": "string", "format": "email", "unique": true},
-    "age": {"type": "integer", "minimum": 18, "maximum": 65},
-    "status": {"type": "string", "enum": ["active", "inactive", "pending"]},
-    "created_at": {"type": "string", "format": "date"}
-  }
-}
-```
-
-### 2. Generate Data
+### Running the API
 
 ```bash
-# Generate 10 users ke JSON
-python -m src.cli generate user_schema.json --count 10 --out users.json
-
-# Generate ke CSV dengan seed untuk reproducible results
-python -m src.cli generate user_schema.json --count 50 --format csv --seed 42 --out users.csv
-
-# Generate SQL INSERT statements
-python -m src.cli generate user_schema.json --count 20 --format sql --table users --out users.sql
+# Start server
+python app/server.py
 ```
 
-### 3. Database Seeding
+API akan tersedia di:
+- **API Documentation**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+- **Health Check**: http://localhost:8000/api/v1/health
+- **Statistics**: http://localhost:8000/api/v1/stats
 
-```bash
-# Langsung insert ke PostgreSQL
-python -m src.cli seed user_schema.json --count 100 \
-  --conn "postgresql://user:password@localhost/mydb" \
-  --table users
-
-# SQLite
-python -m src.cli seed user_schema.json --count 50 \
-  --conn "sqlite:///mydata.db" \
-  --table users
-```
-
-## 📋 Dokumentasi Schema
-
-### Tipe Data yang Didukung
-
-#### String Types
-```json
-{
-  "type": "string",
-  "format": "email|name|uuid|date",
-  "minLength": 5,
-  "maxLength": 50,
-  "pattern": "[A-Z]{3}-[0-9]{4}",
-  "unique": true
-}
-```
-
-#### Numeric Types
-```json
-{
-  "type": "integer|number",
-  "minimum": 1,
-  "maximum": 1000
-}
-```
-
-#### Enum Values
-```json
-{
-  "type": "string",
-  "enum": ["active", "inactive", "pending"]
-}
-```
-
-#### Array Types
-```json
-{
-  "type": "array",
-  "items": {"type": "string"},
-  "minItems": 1,
-  "maxItems": 5
-}
-```
-
-#### Object Types
-```json
-{
-  "type": "object",
-  "properties": {
-    "address": {"type": "string"},
-    "city": {"type": "string"}
-  }
-}
-```
-
-#### References (Foreign Keys)
-```json
-{
-  "type": "ref",
-  "ref": "User.id"
-}
-```
-
-## 🔗 Contoh Schema dengan Relasi
-
-### User Schema (`user.json`)
-```json
-{
-  "type": "object", 
-  "properties": {
-    "id": {"type": "integer", "unique": true},
-    "name": {"type": "string", "format": "name"},
-    "email": {"type": "string", "format": "email", "unique": true},
-    "status": {"type": "string", "enum": ["active", "inactive"]}
-  }
-}
-```
-
-### Post Schema (`post.json`)
-```json
-{
-  "type": "object",
-  "properties": {
-    "id": {"type": "integer", "unique": true},
-    "title": {"type": "string", "maxLength": 100},
-    "body": {"type": "string", "maxLength": 500},
-    "userId": {"type": "ref", "ref": "User.id"},
-    "published": {"type": "boolean"}
-  }
-}
-```
-
-Untuk menggunakan relasi:
-```bash
-# Generate users terlebih dahulu
-python -m src.cli generate user.json --count 10 --model User --out users.json
-
-# Kemudian generate posts yang reference ke users
-python -m src.cli generate post.json --count 50 --model Post --out posts.json
-```
-
-## 🛠 CLI Commands
-
-### Generate Command
-```bash
-python -m src.cli generate <schema_file> [options]
-
-Options:
-  --count INT       Jumlah data yang akan digenerate (default: 10)
-  --model STR       Nama model untuk referencing (default: "Data")
-  --out STR         File output (default: "data.json")
-  --format STR      Format output: json|csv|sql|parquet (default: "json")
-  --table STR       Nama tabel untuk SQL format
-  --seed INT        Random seed untuk reproducible results
-```
-
-### Seed Command
-```bash
-python -m src.cli seed <schema_file> [options]
-
-Options:
-  --count INT       Jumlah data yang akan digenerate (default: 10)
-  --model STR       Nama model untuk referencing (default: "Data") 
-  --conn STR        Database connection string (required)
-  --table STR       Nama tabel target (required)
-  --seed INT        Random seed
-```
-
-## 🏗 Arsitektur Code
+## 🏗️ Arsitektur Baru - REST API Only
 
 ### Struktur Project
+
 ```
-src/
-├── cli.py          # Command line interface
-├── core.py         # Core data generation logic
-├── exporters.py    # Export functions untuk berbagai format
-└── seeder.py       # Database seeding functionality
+datagen/
+├── app/                          # Main application package
+│   ├── api/                     # API layer
+│   │   └── v1/                  # API version 1
+│   │       ├── generate.py      # Data generation endpoints
+│   │       ├── seed.py          # Database seeding endpoints
+│   │       ├── files.py         # File download endpoints
+│   │       ├── schemas.py       # Schema validation endpoints
+│   │       ├── system.py        # System endpoints (health, stats)
+│   │       └── router.py        # Main API router
+│   ├── core/                    # Core application components
+│   │   ├── config.py           # Configuration settings
+│   │   └── exceptions.py       # Exception handlers
+│   ├── models/                  # Pydantic models
+│   │   └── schemas.py          # Request/response models
+│   ├── services/                # Business logic layer
+│   │   ├── generator.py        # Data generation service
+│   │   ├── exporter.py         # Data export service
+│   │   └── seeder.py           # Database seeding service
+│   ├── utils/                   # Utility functions
+│   │   └── validators.py       # Schema validation utilities
+│   ├── main.py                 # FastAPI app factory
+│   └── server.py               # API server startup script
+├── requirements.txt            # Dependencies
+└── README.md                   # This file
 ```
 
-### Core Components
+### Clean Architecture Benefits
 
-#### 1. `core.py` - Data Generation Engine
-- **`generate_sample()`**: Generate satu data point dari schema
-- **`generate_data()`**: Generate multiple data points
-- **Caching system**: `_unique_cache` untuk uniqueness, `_ref_cache` untuk relasi
-- **Format handlers**: Email, UUID, date, pattern matching
+- **API Layer** (`app/api/`): FastAPI routers dan HTTP handling
+- **Services Layer** (`app/services/`): Business logic dan core functionality
+- **Models Layer** (`app/models/`): Pydantic schemas untuk validation
+- **Utils Layer** (`app/utils/`): Helper functions dan utilities
+- **Core Layer** (`app/core/`): Configuration dan framework setup
 
-#### 2. `exporters.py` - Multi-Format Export
-- **`export_json()`**: Pretty-printed JSON dengan UTF-8 encoding
-- **`export_csv()`**: CSV menggunakan pandas
-- **`export_sql()`**: SQL INSERT statements
-- **`export_parquet()`**: Parquet format untuk big data
+## 🛠 API Endpoints
 
-#### 3. `seeder.py` - Database Integration
-- **SQLAlchemy integration**: Universal database support
-- **Reflection-based**: Otomatis detect table structure
-- **Transaction-safe**: Menggunakan engine.begin() untuk atomicity
+### Data Generation
 
-#### 4. `cli.py` - Command Line Interface
-- **Argparse-based**: Clean command structure
-- **Subcommands**: `generate` dan `seed`
-- **Validation**: Required parameters dan error handling
+#### Generate Data (In-Memory)
+```http
+POST /api/v1/data/generate
+```
 
-## 🔧 Advanced Usage
+Generate data dan return langsung di response.
 
-### Custom Pattern Generation
+**Request Body:**
 ```json
 {
-  "type": "string",
-  "pattern": "[A-Z]{2}-[0-9]{4}-[A-Z]{1}"
-}
-```
-Generates: "AB-1234-C"
-
-### Complex Nested Objects
-```json
-{
-  "type": "object",
-  "properties": {
-    "profile": {
-      "type": "object", 
-      "properties": {
-        "bio": {"type": "string", "maxLength": 200},
-        "tags": {
-          "type": "array",
-          "items": {"type": "string"},
-          "minItems": 1,
-          "maxItems": 5
+    "schema": {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string", "format": "name"},
+            "email": {"type": "string", "format": "email", "unique": true},
+            "age": {"type": "integer", "minimum": 18, "maximum": 80}
         }
-      }
-    }
-  }
+    },
+    "count": 10,
+    "format": "json",
+    "seed": 42
 }
 ```
 
-### Database Connection Strings
+**Response:**
+```json
+{
+    "success": true,
+    "data": [
+        {
+            "name": "John Doe",
+            "email": "john@example.com",
+            "age": 25
+        }
+    ],
+    "count": 10,
+    "format": "json"
+}
+```
+
+#### Generate Data to File
+```http
+POST /api/v1/data/generate/file
+```
+
+Generate data dan save ke downloadable file.
+
+**Request Body:**
+```json
+{
+    "schema": {...},
+    "count": 1000,
+    "format": "csv",
+    "filename": "users",
+    "seed": 42
+}
+```
+
+**Response:**
+```json
+{
+    "success": true,
+    "file_id": "uuid-here",
+    "filename": "uuid_users.csv",
+    "download_url": "/api/v1/files/download/uuid_users.csv",
+    "count": 1000,
+    "format": "csv",
+    "expires_in": "1 hour"
+}
+```
+
+**Supported Formats:** `json`, `csv`, `sql`, `parquet`
+
+### Database Seeding
+
+#### Seed Database
+```http
+POST /api/v1/database/seed
+```
+
+Generate data dan insert langsung ke database.
+
+**Request Body:**
+```json
+{
+    "schema": {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string", "format": "name"},
+            "email": {"type": "string", "format": "email", "unique": true}
+        }
+    },
+    "count": 1000,
+    "connection_string": "postgresql://user:pass@localhost/dbname",
+    "table_name": "users",
+    "batch_size": 500
+}
+```
+
+### Schema Validation
+
+#### Validate Schema
+```http
+POST /api/v1/schemas/validate
+```
+
+Validate JSON schema sebelum generation.
+
+**Request Body:**
+```json
+{
+    "schema": {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string", "format": "name"}
+        }
+    }
+}
+```
+
+**Response:**
+```json
+{
+    "success": true,
+    "valid": true,
+    "errors": [],
+    "warnings": [],
+    "schema_type": "object",
+    "supported_features": ["string_formats"]
+}
+```
+
+### System Endpoints
+
+#### Health Check
+```http
+GET /api/v1/health
+```
+
+Check API health dan uptime.
+
+#### Statistics
+```http
+GET /api/v1/stats
+```
+
+Get usage statistics dan metrics.
+
+### File Management
+
+#### Download File
+```http
+GET /api/v1/files/download/{filename}
+```
+
+Download generated file.
+
+## 📊 Schema Features
+
+### Supported Types
+
+- **string**: Text data dengan formats (email, uuid, date, name) dan patterns
+- **integer**: Whole numbers dengan min/max constraints
+- **number**: Decimal numbers dengan min/max constraints  
+- **boolean**: True/false values
+- **array**: Lists dengan configurable item counts
+- **object**: Nested structures dengan properties
+- **ref**: References ke other generated models
+- **enum**: Fixed set of possible values
+
+### String Formats
+
+- `email`: Generates valid email addresses
+- `uuid`: Generates UUID v4 strings
+- `date`: Generates date strings (YYYY-MM-DD)
+- `name`: Generates person names
+- Custom regex patterns supported
+
+### Schema Examples
+
+#### Simple User Schema
+```json
+{
+    "type": "object",
+    "properties": {
+        "id": {"type": "string", "format": "uuid"},
+        "name": {"type": "string", "format": "name"},
+        "email": {"type": "string", "format": "email", "unique": true},
+        "age": {"type": "integer", "minimum": 18, "maximum": 80},
+        "status": {"enum": ["active", "inactive", "pending"]},
+        "created_at": {"type": "string", "format": "date"}
+    }
+}
+```
+
+#### Complex Schema dengan Relations
+```json
+{
+    "type": "object",
+    "properties": {
+        "id": {"type": "integer", "unique": true},
+        "title": {"type": "string", "maxLength": 100},
+        "salary": {"type": "number", "minimum": 30000, "maximum": 200000},
+        "department": {"enum": ["IT", "HR", "Finance", "Marketing"]},
+        "skills": {
+            "type": "array",
+            "items": {"type": "string"},
+            "minItems": 1,
+            "maxItems": 5
+        },
+        "address": {
+            "type": "object",
+            "properties": {
+                "street": {"type": "string"},
+                "city": {"type": "string"},
+                "zipcode": {"type": "string", "pattern": "[0-9]{5}"}
+            }
+        },
+        "managerId": {"type": "ref", "ref": "User.id"}
+    }
+}
+```
+
+#### Custom Patterns
+```json
+{
+    "type": "object",
+    "properties": {
+        "product_code": {"type": "string", "pattern": "[A-Z]{2}-[0-9]{4}-[A-Z]{1}"},
+        "phone": {"type": "string", "pattern": "\\+62[0-9]{9,12}"}
+    }
+}
+```
+
+## 🗄️ Database Support
+
+Supported databases via SQLAlchemy:
+- **PostgreSQL** - Recommended untuk production
+- **MySQL/MariaDB** - Popular choice
+- **SQLite** - Good untuk development
+- **SQL Server** - Enterprise usage
+
+### Connection String Examples
 ```bash
 # PostgreSQL
 postgresql://username:password@localhost:5432/database
@@ -285,97 +339,296 @@ mysql://username:password@localhost:3306/database
 sqlite:///path/to/database.db
 
 # SQL Server
-mssql+pyodbc://username:password@server/database?driver=ODBC+Driver+17+for+SQL+Server
+mssql+pyodbc://user:pass@server/db?driver=ODBC+Driver+17+for+SQL+Server
 ```
 
-## 🚨 Saran dan Rekomendasi
+## ⚙️ Configuration
 
-### ✅ Improvements yang Disarankan
+### Environment Variables (.env file)
 
-1. **Error Handling yang Lebih Robust**
-   - Validasi schema sebelum generation
-   - Handle database connection errors
-   - Validasi file path dan permissions
+```env
+# API Settings
+PROJECT_NAME="Datagen API"
+VERSION="1.0.0"
+DEBUG=true
+API_V1_STR="/api/v1"
 
-2. **Testing Framework**
-   - Unit tests untuk core functions
-   - Integration tests untuk database seeding
-   - Schema validation tests
+# Server Settings
+HOST=0.0.0.0
+PORT=8000
+RELOAD=true
 
-3. **Configuration Management**
-   - Support untuk config file (.env, .toml)
-   - Database connection pooling
-   - Default schema templates
+# CORS Settings  
+CORS_ORIGINS=*
+CORS_ALLOW_CREDENTIALS=true
+CORS_ALLOW_METHODS=*
+CORS_ALLOW_HEADERS=*
 
-4. **Performance Optimizations**
-   - Batch insert untuk database seeding
-   - Memory-efficient generation untuk large datasets
-   - Progress bars untuk long operations
+# Security
+SECRET_KEY=your-secret-key-here
+ALLOWED_HOSTS=
 
-5. **Extended Format Support**
-   - XML export
-   - YAML export  
-   - Excel files (.xlsx)
-   - Avro format
+# File Settings
+MAX_FILE_SIZE=104857600  # 100MB
+FILE_CLEANUP_HOURS=1
 
-6. **Advanced Schema Features**
-   - JSON Schema validation (Draft 7/2019-09)
-   - Conditional schemas (if/then/else)
-   - Schema composition (allOf, anyOf, oneOf)
-   - Custom format validators
+# Generation Limits
+MAX_RECORDS_PER_REQUEST=100000
+MAX_BATCH_SIZE=10000
 
-### 🔒 Security Considerations
+# Logging
+LOG_LEVEL=INFO
+```
 
-1. **SQL Injection Prevention**
-   - Parameterized queries instead of string concatenation
-   - Input sanitization untuk SQL export
+## 🧪 Development & Testing
 
-2. **Connection Security**
-   - SSL/TLS support untuk database connections
-   - Credential management best practices
+### Running Tests
 
-### 📊 Monitoring & Logging
+```bash
+# Install dev dependencies
+pip install pytest pytest-asyncio httpx
 
-1. **Logging Framework**
-   - Structured logging dengan levels
-   - Progress tracking untuk large generations
-   - Performance metrics
+# Run tests
+pytest tests/
 
-2. **Validation & Quality Control**
-   - Data quality checks
-   - Schema compliance validation
-   - Uniqueness constraint verification
+# Run dengan coverage
+pytest --cov=app tests/
+```
 
-### 🎯 Usage Examples Repository
+### Testing the API
 
-Buat folder `examples/` dengan schema-schema umum:
-- E-commerce (products, orders, customers)
-- Blog system (users, posts, comments)
-- Educational (students, courses, enrollments)
-- Financial (accounts, transactions, users)
+```bash
+# Test health check
+curl http://localhost:8000/api/v1/health
 
-### 🚀 Future Enhancements
+# Test data generation
+curl -X POST "http://localhost:8000/api/v1/data/generate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string", "format": "name"},
+        "email": {"type": "string", "format": "email"}
+      }
+    },
+    "count": 5
+  }'
+```
 
-1. **Web UI**: Simple web interface untuk non-technical users
-2. **API Mode**: REST API untuk integration dengan other systems
-3. **Streaming**: Support untuk infinite data streams
-4. **Multi-language**: Localized fake data (names, addresses, etc.)
-5. **ML Integration**: AI-powered realistic data patterns
+## 🎯 Advanced Usage Examples
 
-## 📄 License
+### 1. E-Commerce Data
+
+#### Products Schema
+```json
+{
+    "type": "object",
+    "properties": {
+        "id": {"type": "integer", "unique": true},
+        "name": {"type": "string", "maxLength": 100},
+        "price": {"type": "number", "minimum": 10000, "maximum": 5000000},
+        "category": {"enum": ["Electronics", "Clothing", "Books", "Sports"]},
+        "sku": {"type": "string", "pattern": "[A-Z]{3}-[0-9]{6}"},
+        "in_stock": {"type": "boolean"},
+        "tags": {
+            "type": "array",
+            "items": {"type": "string"},
+            "minItems": 1,
+            "maxItems": 3
+        }
+    }
+}
+```
+
+#### Orders Schema
+```json
+{
+    "type": "object", 
+    "properties": {
+        "id": {"type": "integer", "unique": true},
+        "customer_id": {"type": "ref", "ref": "Customer.id"},
+        "product_id": {"type": "ref", "ref": "Product.id"},
+        "quantity": {"type": "integer", "minimum": 1, "maximum": 10},
+        "total": {"type": "number", "minimum": 10000, "maximum": 10000000},
+        "status": {"enum": ["pending", "processing", "shipped", "delivered"]},
+        "order_date": {"type": "string", "format": "date"}
+    }
+}
+```
+
+### 2. Blog System Data
+
+#### Users Schema
+```json
+{
+    "type": "object",
+    "properties": {
+        "id": {"type": "integer", "unique": true},
+        "username": {"type": "string", "minLength": 3, "maxLength": 20},
+        "email": {"type": "string", "format": "email", "unique": true},
+        "full_name": {"type": "string", "format": "name"},
+        "bio": {"type": "string", "maxLength": 500},
+        "avatar_url": {"type": "string", "format": "uuid"},
+        "role": {"enum": ["user", "author", "admin"]},
+        "is_active": {"type": "boolean"},
+        "joined_date": {"type": "string", "format": "date"}
+    }
+}
+```
+
+#### Posts Schema  
+```json
+{
+    "type": "object",
+    "properties": {
+        "id": {"type": "integer", "unique": true},
+        "title": {"type": "string", "minLength": 10, "maxLength": 200},
+        "slug": {"type": "string", "pattern": "[a-z0-9-]+"},
+        "content": {"type": "string", "minLength": 100, "maxLength": 5000},
+        "author_id": {"type": "ref", "ref": "User.id"},
+        "category": {"enum": ["tech", "lifestyle", "business", "travel"]},
+        "tags": {
+            "type": "array",
+            "items": {"type": "string"},
+            "minItems": 1,
+            "maxItems": 5
+        },
+        "published": {"type": "boolean"},
+        "views": {"type": "integer", "minimum": 0, "maximum": 100000},
+        "published_date": {"type": "string", "format": "date"}
+    }
+}
+```
+
+### 3. Financial Data
+
+#### Transactions Schema
+```json
+{
+    "type": "object",
+    "properties": {
+        "id": {"type": "string", "format": "uuid"},
+        "account_id": {"type": "ref", "ref": "Account.id"},
+        "amount": {"type": "number", "minimum": -1000000000, "maximum": 1000000000},
+        "type": {"enum": ["debit", "credit", "transfer", "fee"]},
+        "category": {"enum": ["food", "transport", "salary", "entertainment", "bills"]},
+        "description": {"type": "string", "maxLength": 200},
+        "reference_number": {"type": "string", "pattern": "TXN[0-9]{10}"},
+        "status": {"enum": ["pending", "completed", "failed", "cancelled"]},
+        "transaction_date": {"type": "string", "format": "date"}
+    }
+}
+```
+
+## 🚨 Migration dari CLI ke REST API
+
+### ❌ CLI Commands (Deprecated)
+
+```bash
+# OLD - CLI approach (tidak lagi didukung)
+python -m src.cli generate user_schema.json --count 100 --out users.json
+python -m src.cli seed user_schema.json --count 100 --conn "postgresql://..." --table users
+```
+
+### ✅ REST API Approach (New)
+
+```bash
+# NEW - REST API approach
+curl -X POST "http://localhost:8000/api/v1/data/generate/file" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "schema": {...},
+    "count": 100,
+    "format": "json",
+    "filename": "users"
+  }'
+
+curl -X POST "http://localhost:8000/api/v1/database/seed" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "schema": {...},
+    "count": 100,
+    "connection_string": "postgresql://...",
+    "table_name": "users"
+  }'
+```
+
+## 🔧 Error Handling
+
+API menggunakan standardized error responses:
+
+```json
+{
+    "success": false,
+    "error": "Validation failed",
+    "error_type": "ValidationError",
+    "details": "Schema must have a 'type' property",
+    "status_code": 400
+}
+```
+
+### Error Types
+- `ValidationError` - Request validation failed
+- `GenerationError` - Data generation failed  
+- `ExportError` - File export failed
+- `DatabaseError` - Database operation failed
+- `SchemaValidationError` - Schema validation failed
+- `InternalServerError` - Unexpected server error
+
+## 📈 Performance & Limits
+
+### Default Limits
+- Maximum records per request: **100,000**
+- Maximum batch size for database: **10,000** 
+- File cleanup after: **1 hour**
+- Maximum file size: **100MB**
+
+### Performance Tips
+
+1. **Large datasets**: Gunakan file generation untuk datasets > 10k records
+2. **Database seeding**: Gunakan batch_size optimal (500-2000) 
+3. **Memory usage**: API secara otomatis manage memory untuk large generations
+4. **Concurrent requests**: FastAPI mendukung async concurrent processing
+
+## 📝 License
 
 MIT License - lihat file [LICENSE](LICENSE) untuk detail lengkap.
 
 ## 🤝 Contributing
 
 1. Fork repository
-2. Buat feature branch (`git checkout -b feature/amazing-feature`)
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push ke branch (`git push origin feature/amazing-feature`)
-5. Buat Pull Request
+4. Push branch (`git push origin feature/amazing-feature`)
+5. Create Pull Request
 
-## 📞 Support
+## 📞 Support & Community
 
-- **Issues**: [GitHub Issues](https://github.com/wildan14ar/Datagen/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/wildan14ar/Datagen/discussions)
-- **Email**: wildan14ar@example.com
+- **GitHub Issues**: [Report bugs atau request features](https://github.com/wildan14ar/Datagen/issues)
+- **GitHub Discussions**: [Community discussions](https://github.com/wildan14ar/Datagen/discussions)
+- **Documentation**: API docs tersedia di `/docs` endpoint
+
+## 🎉 What's New in v2.0
+
+### ✅ Completed Restructuring
+
+1. **Removed CLI**: Pure REST API focus
+2. **Clean Architecture**: Layered application structure
+3. **Versioned APIs**: `/api/v1/` endpoints
+4. **Better Error Handling**: Standardized error responses
+5. **Auto Documentation**: Swagger/ReDoc integration
+6. **Production Ready**: Proper middleware dan security
+7. **Modern Dependencies**: Updated to latest versions
+8. **Development Experience**: Hot reload dan testing support
+
+### 🚀 Benefits
+
+- **Better Maintainability**: Clear separation of concerns
+- **Scalability**: Easy untuk add new endpoints dan features  
+- **Testing**: Each layer dapat di-test independently
+- **Documentation**: Automatic API documentation
+- **Production Ready**: Proper error handling dan security
+- **Developer Experience**: Easy untuk understand dan extend
+
+Project ini sekarang menggunakan modern FastAPI best practices dan provides solid foundation untuk production-ready REST API service! 🎉

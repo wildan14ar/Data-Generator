@@ -1,9 +1,17 @@
+"""
+Database seeding service
+"""
+
 import logging
 from typing import List, Dict, Any
 from sqlalchemy import create_engine, Table, MetaData, exc
 from sqlalchemy.engine import Engine
 
+from app.core.exceptions import DatabaseError
+
+
 logger = logging.getLogger(__name__)
+
 
 def seed_db(data: List[Dict[str, Any]], conn_str: str, table: str, batch_size: int = 1000) -> None:
     """Seed database with generated data.
@@ -15,18 +23,17 @@ def seed_db(data: List[Dict[str, Any]], conn_str: str, table: str, batch_size: i
         batch_size: Number of records to insert per batch
         
     Raises:
-        ValueError: If connection string or table name is invalid
-        sqlalchemy.exc.SQLAlchemyError: If database operation fails
+        DatabaseError: If database operation fails
     """
     if not data:
         logger.warning("No data to seed")
         return
     
     if not conn_str:
-        raise ValueError("Connection string is required")
+        raise DatabaseError("Connection string is required")
     
     if not table:
-        raise ValueError("Table name is required")
+        raise DatabaseError("Table name is required")
     
     try:
         # Create engine with connection pooling
@@ -48,7 +55,7 @@ def seed_db(data: List[Dict[str, Any]], conn_str: str, table: str, batch_size: i
         meta.reflect(bind=engine)
         
         if table not in meta.tables:
-            raise ValueError(f"Table '{table}' does not exist in database")
+            raise DatabaseError(f"Table '{table}' does not exist in database")
         
         tbl = meta.tables[table]
         logger.info(f"Target table: {table} with columns: {list(tbl.columns.keys())}")
@@ -86,19 +93,22 @@ def seed_db(data: List[Dict[str, Any]], conn_str: str, table: str, batch_size: i
                     logger.info(f"Inserted batch {i//batch_size + 1}: {batch_count} records")
                 except Exception as e:
                     logger.error(f"Error inserting batch {i//batch_size + 1}: {e}")
-                    raise
+                    raise DatabaseError(f"Error inserting batch: {e}")
         
         logger.info(f"✅ Successfully seeded {total_inserted} records into table '{table}'")
         
     except exc.SQLAlchemyError as e:
         logger.error(f"Database error: {e}")
+        raise DatabaseError(f"Database error: {e}")
+    except DatabaseError:
         raise
     except Exception as e:
         logger.error(f"Unexpected error during seeding: {e}")
-        raise
+        raise DatabaseError(f"Unexpected error during seeding: {e}")
     finally:
         if 'engine' in locals():
             engine.dispose()
+
 
 def _flatten_dict_for_db(d: Dict[str, Any], parent_key: str = '', sep: str = '_') -> Dict[str, Any]:
     """Flatten nested dictionary for database insertion.
@@ -125,6 +135,7 @@ def _flatten_dict_for_db(d: Dict[str, Any], parent_key: str = '', sep: str = '_'
             items.append((new_key, v))
     
     return dict(items)
+
 
 def test_connection(conn_str: str) -> bool:
     """Test database connection.

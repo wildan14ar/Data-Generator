@@ -1,8 +1,8 @@
 """
-FastAPI models for Datagen API
+Pydantic models for API requests and responses
 """
 
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, Field, validator
 from enum import Enum
 
@@ -10,7 +10,7 @@ from enum import Enum
 class ExportFormat(str, Enum):
     """Supported export formats."""
     json = "json"
-    csv = "csv"
+    csv = "csv" 
     sql = "sql"
     parquet = "parquet"
 
@@ -109,14 +109,6 @@ class SeedResponse(BaseModel):
     message: str = Field("Data seeded successfully", description="Status message")
 
 
-class ErrorResponse(BaseModel):
-    """Error response model."""
-    success: bool = Field(False, description="Always false for errors")
-    error: str = Field(..., description="Error message")
-    details: Optional[str] = Field(None, description="Detailed error information")
-    error_type: str = Field("GeneralError", description="Type of error")
-
-
 class SchemaValidationRequest(BaseModel):
     """Request model for schema validation."""
     schema: Dict[str, Any] = Field(..., description="JSON Schema to validate")
@@ -124,6 +116,7 @@ class SchemaValidationRequest(BaseModel):
 
 class SchemaValidationResponse(BaseModel):
     """Response model for schema validation."""
+    success: bool = Field(True, description="Whether validation succeeded")
     valid: bool = Field(..., description="Whether the schema is valid")
     errors: List[str] = Field(default_factory=list, description="Validation errors")
     warnings: List[str] = Field(default_factory=list, description="Validation warnings")
@@ -139,10 +132,19 @@ class HealthResponse(BaseModel):
     uptime: str = Field(..., description="Service uptime")
 
 
-class GenerateStatsResponse(BaseModel):
+class StatsResponse(BaseModel):
     """Statistics response for generation operations."""
     total_requests: int = Field(0, description="Total generation requests")
     total_records_generated: int = Field(0, description="Total records generated")
     popular_formats: Dict[str, int] = Field(default_factory=dict, description="Usage by format")
     average_generation_time: float = Field(0.0, description="Average generation time in seconds")
     uptime_hours: float = Field(0.0, description="Service uptime in hours")
+
+
+class ErrorResponse(BaseModel):
+    """Error response model."""
+    success: bool = Field(False, description="Always false for errors")
+    error: str = Field(..., description="Error message")
+    details: Optional[str] = Field(None, description="Detailed error information")
+    error_type: str = Field("GeneralError", description="Type of error")
+    status_code: int = Field(400, description="HTTP status code")

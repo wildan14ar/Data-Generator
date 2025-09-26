@@ -1,10 +1,18 @@
+"""
+Data export service
+"""
+
 import json
 import pandas as pd
 import logging
 from typing import List, Dict, Any
 from pathlib import Path
 
+from app.core.exceptions import ExportError
+
+
 logger = logging.getLogger(__name__)
+
 
 def export_json(data: List[Dict[str, Any]], outfile: str) -> None:
     """Export data to JSON file.
@@ -14,8 +22,7 @@ def export_json(data: List[Dict[str, Any]], outfile: str) -> None:
         outfile: Output file path
         
     Raises:
-        IOError: If file cannot be written
-        ValueError: If data is invalid
+        ExportError: If file cannot be written or data is invalid
     """
     if not data:
         logger.warning("No data to export")
@@ -32,7 +39,8 @@ def export_json(data: List[Dict[str, Any]], outfile: str) -> None:
         
     except Exception as e:
         logger.error(f"Failed to export JSON: {e}")
-        raise IOError(f"Cannot write to {outfile}: {e}")
+        raise ExportError(f"Cannot write to {outfile}: {e}")
+
 
 def export_csv(data: List[Dict[str, Any]], outfile: str) -> None:
     """Export data to CSV file.
@@ -42,8 +50,7 @@ def export_csv(data: List[Dict[str, Any]], outfile: str) -> None:
         outfile: Output file path
         
     Raises:
-        IOError: If file cannot be written
-        ValueError: If data cannot be converted to DataFrame
+        ExportError: If file cannot be written or data cannot be converted
     """
     if not data:
         logger.warning("No data to export")
@@ -66,7 +73,8 @@ def export_csv(data: List[Dict[str, Any]], outfile: str) -> None:
         
     except Exception as e:
         logger.error(f"Failed to export CSV: {e}")
-        raise IOError(f"Cannot write to {outfile}: {e}")
+        raise ExportError(f"Cannot write to {outfile}: {e}")
+
 
 def export_sql(data: List[Dict[str, Any]], table: str, outfile: str) -> None:
     """Export data as SQL INSERT statements.
@@ -77,15 +85,14 @@ def export_sql(data: List[Dict[str, Any]], table: str, outfile: str) -> None:
         outfile: Output file path
         
     Raises:
-        IOError: If file cannot be written
-        ValueError: If table name or data is invalid
+        ExportError: If file cannot be written or parameters are invalid
     """
     if not data:
         logger.warning("No data to export")
         return
     
     if not table or not table.replace('_', '').replace('-', '').isalnum():
-        raise ValueError("Invalid table name")
+        raise ExportError("Invalid table name")
     
     try:
         # Ensure directory exists
@@ -112,7 +119,8 @@ def export_sql(data: List[Dict[str, Any]], table: str, outfile: str) -> None:
         
     except Exception as e:
         logger.error(f"Failed to export SQL: {e}")
-        raise IOError(f"Cannot write to {outfile}: {e}")
+        raise ExportError(f"Cannot write to {outfile}: {e}")
+
 
 def export_parquet(data: List[Dict[str, Any]], outfile: str) -> None:
     """Export data to Parquet file.
@@ -122,8 +130,7 @@ def export_parquet(data: List[Dict[str, Any]], outfile: str) -> None:
         outfile: Output file path
         
     Raises:
-        IOError: If file cannot be written
-        ImportError: If pyarrow is not installed
+        ExportError: If file cannot be written or pyarrow is not installed
     """
     if not data:
         logger.warning("No data to export")
@@ -132,7 +139,7 @@ def export_parquet(data: List[Dict[str, Any]], outfile: str) -> None:
     try:
         import pyarrow
     except ImportError:
-        raise ImportError("pyarrow is required for Parquet export. Install with: pip install pyarrow")
+        raise ExportError("pyarrow is required for Parquet export. Install with: pip install pyarrow")
     
     try:
         # Ensure directory exists
@@ -151,7 +158,8 @@ def export_parquet(data: List[Dict[str, Any]], outfile: str) -> None:
         
     except Exception as e:
         logger.error(f"Failed to export Parquet: {e}")
-        raise IOError(f"Cannot write to {outfile}: {e}")
+        raise ExportError(f"Cannot write to {outfile}: {e}")
+
 
 def _flatten_dict(d: Dict[str, Any], parent_key: str = '', sep: str = '_') -> Dict[str, Any]:
     """Flatten nested dictionary for CSV/SQL compatibility.
@@ -177,6 +185,7 @@ def _flatten_dict(d: Dict[str, Any], parent_key: str = '', sep: str = '_') -> Di
             items.append((new_key, v))
     
     return dict(items)
+
 
 def _sql_escape_value(value: Any) -> str:
     """Escape value for SQL INSERT statement.

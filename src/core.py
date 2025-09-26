@@ -1,18 +1,47 @@
-import random, re
+import random
+import re
+import logging
+from typing import Dict, List, Any, Union, Optional
 from faker import Faker
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 fake = Faker()
 _unique_cache = {}  # cache untuk uniqueness
 _ref_cache = {}     # cache untuk relasi antar model
 
-def generate_sample(schema: dict, model_name: str = None):
-    """Generate satu nilai dari schema."""
+def clear_caches():
+    """Clear all internal caches."""
+    global _unique_cache, _ref_cache
+    _unique_cache.clear()
+    _ref_cache.clear()
+    fake.unique.clear()
+
+def generate_sample(schema: Dict[str, Any], model_name: Optional[str] = None) -> Any:
+    """Generate satu nilai dari schema.
+    
+    Args:
+        schema: JSON schema dictionary
+        model_name: Optional model name for referencing
+        
+    Returns:
+        Generated value based on schema
+        
+    Raises:
+        ValueError: If schema is invalid or reference model not found
+    """
+    if not isinstance(schema, dict):
+        raise ValueError("Schema harus berupa dictionary")
 
     # --- ENUM ---
     if "enum" in schema:
         return random.choice(schema["enum"])
 
     t = schema.get("type")
+    if not t:
+        raise ValueError("Schema harus memiliki property 'type'")
 
     # --- String ---
     if t == "string":
@@ -20,25 +49,39 @@ def generate_sample(schema: dict, model_name: str = None):
         min_len = schema.get("minLength", 3)
         max_len = schema.get("maxLength", 12)
 
-        if fmt == "email":
-            return fake.unique.email() if schema.get("unique") else fake.email()
-        if fmt == "uuid":
-            return fake.unique.uuid4() if schema.get("unique") else fake.uuid4()
-        if fmt == "date":
-            return fake.date()
-        if fmt == "name":
-            return fake.name()
-        if "pattern" in schema:
-            pat = schema["pattern"]
-            # generate dummy string cocok pattern (simple only)
-            return re.sub(r"\[A-Z\]", random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ"), pat)
-        return fake.word()[:max_len]
+        try:
+            if fmt == "email":
+                return fake.unique.email() if schema.get("unique") else fake.email()
+            if fmt == "uuid":
+                return str(fake.unique.uuid4()) if schema.get("unique") else str(fake.uuid4())
+            if fmt == "date":
+                return fake.date()
+            if fmt == "name":
+                return fake.name()
+            if "pattern" in schema:
+                return _generate_pattern(schema["pattern"])
+            
+            # Generate random word with length constraints
+            word = fake.word()
+            if len(word) > max_len:
+                word = word[:max_len]
+            elif len(word) < min_len:
+                word = word + fake.word()[:min_len - len(word)]
+            return word
+            
+        except Exception as e:
+            logger.warning(f"Error generating string: {e}")
+            return fake.word()[:max_len]
 
     # --- Integer/Number ---
     if t in ["integer", "number"]:
         minimum = schema.get("minimum", 1)
         maximum = schema.get("maximum", 1000)
-        return random.randint(minimum, maximum)
+        
+        if t == "integer":
+            return random.randint(int(minimum), int(maximum))
+        else:  # number (float)
+            return round(random.uniform(float(minimum), float(maximum)), 2)
 
     # --- Boolean ---
     if t == "boolean":
@@ -46,38 +89,125 @@ def generate_sample(schema: dict, model_name: str = None):
 
     # --- Array ---
     if t == "array":
+        if "items" not in schema:
+            raise ValueError("Array schema harus memiliki property 'items'")
+            
         min_items = schema.get("minItems", 1)
         max_items = schema.get("maxItems", 3)
+        count = random.randint(min_items, max_items)
+        
         return [
             generate_sample(schema["items"], model_name)
-            for _ in range(random.randint(min_items, max_items))
+            for _ in range(count)
         ]
 
     # --- Object ---
     if t == "object":
+        properties = schema.get("properties", {})
+        if not properties:
+            logger.warning("Object schema tidak memiliki properties")
+            return {}
+            
         return {
             key: generate_sample(sub_schema, model_name)
-            for key, sub_schema in schema.get("properties", {}).items()
+            for key, sub_schema in properties.items()
         }
 
     # --- Reference ---
     if t == "ref":
-        ref_str = schema["ref"]  # contoh: "User.id"
-        model, field = ref_str.split(".")
+        ref_str = schema.get("ref")
+        if not ref_str:
+            raise ValueError("Reference schema harus memiliki property 'ref'")
+            
+        if "." not in ref_str:
+            raise ValueError(f"Invalid reference format: {ref_str}. Expected 'Model.field'")
+            
+        model, field = ref_str.split(".", 1)
         if model not in _ref_cache:
-            raise ValueError(f"Model {model} belum tersedia untuk ref")
-        return random.choice([row[field] for row in _ref_cache[model]])
+            raise ValueError(f"Model {model} belum tersedia untuk ref. Generate model {model} terlebih dahulu.")
+        
+        available_refs = [row[field] for row in _ref_cache[model] if field in row]
+        if not available_refs:
+            raise ValueError(f"Field {field} tidak ditemukan dalam model {model}")
+            
+        return random.choice(available_refs)
 
-    return None
+    raise ValueError(f"Unsupported schema type: {t}")
+
+def _generate_pattern(pattern: str) -> str:
+    """Generate string matching simple regex patterns.
+    
+    Args:
+        pattern: Simple regex pattern (limited support)
+        
+    Returns:
+        Generated string matching pattern
+    """
+    try:
+        # Handle simple patterns like [A-Z]{3}-[0-9]{4}
+        result = pattern
+        
+        # Replace [A-Z]{n} with n random uppercase letters
+        result = re.sub(r'\[A-Z\]\{(\d+)\}', lambda m: ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=int(m.group(1)))), result)
+        
+        # Replace [0-9]{n} with n random digits
+        result = re.sub(r'\[0-9\]\{(\d+)\}', lambda m: ''.join(random.choices('0123456789', k=int(m.group(1)))), result)
+        
+        # Replace [a-z]{n} with n random lowercase letters
+        result = re.sub(r'\[a-z\]\{(\d+)\}', lambda m: ''.join(random.choices('abcdefghijklmnopqrstuvwxyz', k=int(m.group(1)))), result)
+        
+        # Simple single character classes
+        result = re.sub(r'\[A-Z\]', lambda m: random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ'), result)
+        result = re.sub(r'\[0-9\]', lambda m: random.choice('0123456789'), result)
+        result = re.sub(r'\[a-z\]', lambda m: random.choice('abcdefghijklmnopqrstuvwxyz'), result)
+        
+        return result
+    except Exception as e:
+        logger.warning(f"Error generating pattern {pattern}: {e}")
+        return fake.word()
 
 
-def generate_data(schema: dict, count: int, model_name: str = None, seed: int = None):
-    """Generate banyak data dari schema."""
+def generate_data(schema: Dict[str, Any], count: int, model_name: Optional[str] = None, seed: Optional[int] = None) -> List[Dict[str, Any]]:
+    """Generate banyak data dari schema.
+    
+    Args:
+        schema: JSON schema dictionary
+        count: Number of records to generate
+        model_name: Optional model name for referencing
+        seed: Optional random seed for reproducible results
+        
+    Returns:
+        List of generated data records
+        
+    Raises:
+        ValueError: If parameters are invalid
+    """
+    if count <= 0:
+        raise ValueError("Count harus lebih besar dari 0")
+    
     if seed is not None:
         random.seed(seed)
         Faker.seed(seed)
+        logger.info(f"Using seed: {seed}")
 
-    data = [generate_sample(schema, model_name) for _ in range(count)]
-    if model_name:
-        _ref_cache[model_name] = data
-    return data
+    logger.info(f"Generating {count} records{' for model ' + model_name if model_name else ''}")
+    
+    try:
+        data = []
+        for i in range(count):
+            try:
+                record = generate_sample(schema, model_name)
+                data.append(record)
+            except Exception as e:
+                logger.error(f"Error generating record {i+1}: {e}")
+                raise
+        
+        if model_name:
+            _ref_cache[model_name] = data
+            logger.info(f"Cached {len(data)} records for model {model_name}")
+            
+        return data
+        
+    except Exception as e:
+        logger.error(f"Failed to generate data: {e}")
+        raise

@@ -1,4 +1,26 @@
-faker
-pandas
-sqlalchemy
-pyarrow    # untuk parquet
+# Core dependencies
+faker>=20.0.0
+pandas>=1.5.0
+sqlalchemy>=2.0.0
+pyarrow>=10.0.0
+
+# API dependencies
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+python-multipart>=0.0.6
+
+# Development dependencies (optional)
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-asyncio>=0.21.0
+httpx>=0.25.0  # For API testing
+black>=22.0.0
+flake8>=5.0.0
+mypy>=1.0.0
+
+# Optional database drivers
+# Uncomment based on your database needs:
+# psycopg2-binary>=2.9.0     # PostgreSQL
+# pymysql>=1.0.0             # MySQL
+# pyodbc>=4.0.0              # SQL Server

@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse
 
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(prefix="/files", tags=["File Management"])
 
 
 @router.get("/download/{filename}")

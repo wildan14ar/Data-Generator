@@ -11,7 +11,7 @@ from app.utils.validators import validate_schema, get_schema_features
 
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(prefix="/schemas", tags=["Schema Validation"])
 
 
 @router.post("/validate", response_model=SchemaValidationResponse)

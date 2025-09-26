@@ -6,11 +6,8 @@ import os
 from typing import List, Optional
 from functools import lru_cache
 
-try:
-    from pydantic_settings import BaseSettings
-    from pydantic import validator
-except ImportError:
-    from pydantic import BaseSettings, validator
+from pydantic_settings import BaseSettings
+from pydantic import validator
 
 
 class Settings(BaseSettings):
@@ -22,7 +19,7 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     
     # API settings
-    API_V1_STR: str = "/api/v1"
+    API_STR: str = "/api"
     DEBUG: bool = True
     
     # Security

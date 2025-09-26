@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.v1.router import api_router
+from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.exceptions import setup_exception_handlers
 
@@ -77,7 +77,7 @@ def create_app() -> FastAPI:
     setup_exception_handlers(app)
     
     # Include routers
-    app.include_router(api_router, prefix=settings.API_V1_STR)
+    app.include_router(api_router, prefix=settings.API_STR)
     
     # Health check endpoint
     @app.get("/")
@@ -88,7 +88,7 @@ def create_app() -> FastAPI:
             "version": settings.VERSION,
             "status": "running",
             "docs_url": "/docs" if settings.DEBUG else None,
-            "health_check": "/api/v1/health"
+            "health_check": "/api/health"
         }
     
     return app

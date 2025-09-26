@@ -12,7 +12,7 @@ from app.core.config import get_settings
 
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(tags=["System"])
 settings = get_settings()
 
 

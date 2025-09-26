@@ -13,7 +13,7 @@ from app.services.seeder import seed_db, test_connection
 
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(prefix="/database", tags=["Database Seeding"])
 
 
 def update_stats(request: Request, generation_time: float, records_count: int):

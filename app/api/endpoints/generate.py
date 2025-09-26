@@ -24,7 +24,7 @@ from app.core.config import get_settings
 
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(prefix="/data", tags=["Data Generation"])
 settings = get_settings()
 
 
@@ -146,7 +146,7 @@ async def generate_to_file(
             "message": "File generated successfully",
             "file_id": file_id,
             "filename": f"{file_id}_{request.filename}{file_extension}",
-            "download_url": f"/api/v1/files/download/{file_id}_{request.filename}{file_extension}",
+            "download_url": f"/files/download/{file_id}_{request.filename}{file_extension}",
             "count": len(data),
             "format": request.format.value,
             "expires_in": f"{cleanup_hours} hour{'s' if cleanup_hours != 1 else ''}"

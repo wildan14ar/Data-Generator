@@ -39,6 +39,11 @@ class SchemaValidationError(DatagenException):
     pass
 
 
+class SchemaIntrospectionError(DatagenException):
+    """Exception raised during database schema introspection."""
+    pass
+
+
 def create_error_response(
     error_type: str,
     message: str,
@@ -129,6 +134,18 @@ def setup_exception_handlers(app: FastAPI) -> None:
             status_code=status.HTTP_400_BAD_REQUEST,
             content=create_error_response(
                 error_type="SchemaValidationError",
+                message=str(exc)
+            )
+        )
+    
+    @app.exception_handler(SchemaIntrospectionError)
+    async def schema_introspection_exception_handler(request: Request, exc: SchemaIntrospectionError):
+        """Handle schema introspection errors."""
+        logger.error(f"Schema introspection error: {exc}")
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content=create_error_response(
+                error_type="SchemaIntrospectionError",
                 message=str(exc)
             )
         )

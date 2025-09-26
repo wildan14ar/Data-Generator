@@ -16,9 +16,10 @@ from fastapi.responses import FileResponse
 
 from app.models.schemas import (
     GenerateRequest, GenerateResponse, GenerateFileRequest,
+    GenerateMultiTableRequest, GenerateMultiTableResponse,
     ExportFormat
 )
-from app.services.generator import generate_data, clear_caches
+from app.services.generator import generate_data, generate_multi_table_data, clear_caches
 from app.services.exporter import export_json, export_csv, export_sql, export_parquet
 from app.core.config import get_settings
 
@@ -91,6 +92,47 @@ async def generate_data_endpoint(
         
     except Exception as e:
         logger.error(f"Generation failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+@router.post("/generate/multi-table", response_model=GenerateMultiTableResponse)
+async def generate_multi_table_endpoint(
+    request: GenerateMultiTableRequest,
+    http_request: Request
+):
+    """Generate data for multiple related tables."""
+    start_time = time.time()
+    
+    try:
+        logger.info(f"Generating data for {len(request.schemas)} tables")
+        
+        # Generate multi-table data
+        table_data = generate_multi_table_data(
+            request.schemas,
+            request.count,
+            request.seed
+        )
+        
+        generation_time = time.time() - start_time
+        total_records = sum(len(data) for data in table_data.values())
+        
+        # Update stats
+        update_stats(http_request, request.format.value, generation_time, total_records)
+        
+        return GenerateMultiTableResponse(
+            data=table_data,
+            count=request.count,
+            tables_generated=len(table_data),
+            total_records=total_records,
+            seed=request.seed,
+            format=request.format.value
+        )
+        
+    except Exception as e:
+        logger.error(f"Multi-table generation failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)

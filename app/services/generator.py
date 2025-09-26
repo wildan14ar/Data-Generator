@@ -24,13 +24,17 @@ def clear_caches():
     _unique_cache.clear()
     _ref_cache.clear()
     fake.unique.clear()
+    
+    # Clear primary key counters
+    if hasattr(generate_sample, '_pk_counter'):
+        generate_sample._pk_counter.clear()
 
 
 def generate_sample(schema: Dict[str, Any], model_name: Optional[str] = None) -> Any:
     """Generate single value from schema.
     
     Args:
-        schema: JSON schema dictionary
+        schema: JSON schema dictionary (supports both generator format and introspector format)
         model_name: Optional model name for referencing
         
     Returns:
@@ -41,6 +45,19 @@ def generate_sample(schema: Dict[str, Any], model_name: Optional[str] = None) ->
     """
     if not isinstance(schema, dict):
         raise GenerationError("Schema harus berupa dictionary")
+
+    # --- Handle default values ---
+    if "default" in schema and schema["default"] is not None:
+        default_value = schema["default"]
+        # Convert string representations back to proper types
+        if schema.get("type") == "boolean":
+            return str(default_value).lower() in ["true", "1", "yes"]
+        elif schema.get("type") in ["integer", "number"]:
+            try:
+                return int(default_value) if schema.get("type") == "integer" else float(default_value)
+            except (ValueError, TypeError):
+                pass  # Fall through to generate random value
+        return default_value
 
     # --- ENUM ---
     if "enum" in schema:
@@ -63,8 +80,12 @@ def generate_sample(schema: Dict[str, Any], model_name: Optional[str] = None) ->
                 return str(fake.unique.uuid4()) if schema.get("unique") else str(fake.uuid4())
             if fmt == "date":
                 return fake.date()
+            if fmt == "datetime":  # Support datetime format from introspector
+                return fake.date_time().isoformat()
             if fmt == "name":
                 return fake.name()
+            if fmt == "uri":  # Support URI format from introspector
+                return fake.url()
             if "pattern" in schema:
                 return _generate_pattern(schema["pattern"])
             
@@ -84,6 +105,18 @@ def generate_sample(schema: Dict[str, Any], model_name: Optional[str] = None) ->
     if t in ["integer", "number"]:
         minimum = schema.get("minimum", 1)
         maximum = schema.get("maximum", 1000)
+        
+        # Special handling for primary keys
+        if schema.get("primary_key"):
+            if t == "integer":
+                # Generate auto-incrementing-like IDs for primary keys
+                if not hasattr(generate_sample, '_pk_counter'):
+                    generate_sample._pk_counter = {}
+                table_key = f"{model_name or 'default'}_pk"
+                if table_key not in generate_sample._pk_counter:
+                    generate_sample._pk_counter[table_key] = 0
+                generate_sample._pk_counter[table_key] += 1
+                return generate_sample._pk_counter[table_key]
         
         if t == "integer":
             return random.randint(int(minimum), int(maximum))
@@ -175,11 +208,46 @@ def _generate_pattern(pattern: str) -> str:
         return fake.word()
 
 
+def normalize_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize schema from introspector format to generator format.
+    
+    Args:
+        schema: JSON schema from introspector or generator format
+        
+    Returns:
+        Normalized schema for generator
+    """
+    if not isinstance(schema, dict):
+        return schema
+    
+    normalized = schema.copy()
+    
+    # Handle object schemas with title and description from introspector
+    if schema.get("type") == "object":
+        if "properties" in schema:
+            # Recursively normalize properties
+            normalized_props = {}
+            for prop_name, prop_schema in schema["properties"].items():
+                normalized_props[prop_name] = normalize_schema(prop_schema)
+            normalized["properties"] = normalized_props
+    
+    # Handle array schemas
+    elif schema.get("type") == "array" and "items" in schema:
+        normalized["items"] = normalize_schema(schema["items"])
+    
+    # Remove introspector-specific metadata that generator doesn't need
+    for key in ["title", "description"]:
+        if key in normalized:
+            del normalized[key]
+    
+    return normalized
+
+
 def generate_data(schema: Dict[str, Any], count: int, model_name: Optional[str] = None, seed: Optional[int] = None) -> List[Dict[str, Any]]:
     """Generate multiple data records from schema.
     
     Args:
-        schema: JSON schema dictionary
+        schema: JSON schema dictionary (supports both generator and introspector formats)
         count: Number of records to generate
         model_name: Optional model name for referencing
         seed: Optional random seed for reproducible results
@@ -198,13 +266,15 @@ def generate_data(schema: Dict[str, Any], count: int, model_name: Optional[str] 
         Faker.seed(seed)
         logger.info(f"Using seed: {seed}")
 
+    # Normalize schema to handle introspector format
+    normalized_schema = normalize_schema(schema)
     logger.info(f"Generating {count} records{' for model ' + model_name if model_name else ''}")
     
     try:
         data = []
         for i in range(count):
             try:
-                record = generate_sample(schema, model_name)
+                record = generate_sample(normalized_schema, model_name)
                 data.append(record)
             except Exception as e:
                 logger.error(f"Error generating record {i+1}: {e}")
@@ -221,3 +291,139 @@ def generate_data(schema: Dict[str, Any], count: int, model_name: Optional[str] 
     except Exception as e:
         logger.error(f"Failed to generate data: {e}")
         raise GenerationError(f"Failed to generate data: {e}")
+
+
+def generate_multi_table_data(
+    schemas: Dict[str, Dict[str, Any]], 
+    counts: Dict[str, int], 
+    seed: Optional[int] = None
+) -> Dict[str, List[Dict[str, Any]]]:
+    """Generate data for multiple related tables.
+    
+    Args:
+        schemas: Dictionary of table_name -> schema
+        counts: Dictionary of table_name -> count  
+        seed: Optional random seed for reproducible results
+        
+    Returns:
+        Dictionary of table_name -> generated_data
+        
+    Raises:
+        GenerationError: If generation fails
+    """
+    if not schemas:
+        raise GenerationError("No schemas provided")
+    
+    if not counts:
+        raise GenerationError("No counts provided")
+    
+    # Clear caches for fresh generation
+    clear_caches()
+    
+    if seed is not None:
+        random.seed(seed)
+        Faker.seed(seed)
+        logger.info(f"Using seed: {seed}")
+    
+    # Analyze dependencies to determine generation order
+    generation_order = _determine_generation_order(schemas)
+    logger.info(f"Generation order: {generation_order}")
+    
+    result = {}
+    
+    for table_name in generation_order:
+        if table_name not in schemas:
+            logger.warning(f"Skipping table '{table_name}' - schema not found")
+            continue
+            
+        if table_name not in counts:
+            logger.warning(f"Skipping table '{table_name}' - count not specified")
+            continue
+        
+        table_schema = schemas[table_name]
+        table_count = counts[table_name]
+        
+        try:
+            logger.info(f"Generating {table_count} records for table '{table_name}'")
+            
+            # Normalize schema and generate data
+            normalized_schema = normalize_schema(table_schema)
+            table_data = []
+            
+            for i in range(table_count):
+                try:
+                    record = generate_sample(normalized_schema, table_name)
+                    table_data.append(record)
+                except Exception as e:
+                    logger.error(f"Error generating record {i+1} for table '{table_name}': {e}")
+                    raise GenerationError(f"Error generating record {i+1} for table '{table_name}': {e}")
+            
+            result[table_name] = table_data
+            
+            # Cache data for references
+            _ref_cache[table_name] = table_data
+            logger.info(f"Generated and cached {len(table_data)} records for table '{table_name}'")
+            
+        except GenerationError:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to generate data for table '{table_name}': {e}")
+            raise GenerationError(f"Failed to generate data for table '{table_name}': {e}")
+    
+    total_records = sum(len(data) for data in result.values())
+    logger.info(f"Successfully generated {total_records} total records across {len(result)} tables")
+    
+    return result
+
+
+def _determine_generation_order(schemas: Dict[str, Dict[str, Any]]) -> List[str]:
+    """Determine the order to generate tables based on foreign key dependencies.
+    
+    Args:
+        schemas: Dictionary of table schemas
+        
+    Returns:
+        List of table names in dependency order (parents first)
+    """
+    # Build dependency graph
+    dependencies = {}  # table -> set of tables it depends on
+    
+    for table_name, schema in schemas.items():
+        dependencies[table_name] = set()
+        
+        if schema.get("type") == "object" and "properties" in schema:
+            for prop_name, prop_schema in schema["properties"].items():
+                if prop_schema.get("type") == "ref":
+                    ref_str = prop_schema.get("ref", "")
+                    if "." in ref_str:
+                        referenced_table = ref_str.split(".", 1)[0]
+                        if referenced_table in schemas:
+                            dependencies[table_name].add(referenced_table)
+    
+    # Topological sort
+    order = []
+    visited = set()
+    temp_visited = set()
+    
+    def visit(table: str):
+        if table in temp_visited:
+            logger.warning(f"Circular dependency detected involving table '{table}'")
+            return
+        if table in visited:
+            return
+        
+        temp_visited.add(table)
+        
+        for dep in dependencies.get(table, set()):
+            if dep in schemas:  # Only visit if dependency is in our schema set
+                visit(dep)
+        
+        temp_visited.remove(table)
+        visited.add(table)
+        order.append(table)
+    
+    for table in schemas.keys():
+        if table not in visited:
+            visit(table)
+    
+    return order

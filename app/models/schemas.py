@@ -36,6 +36,49 @@ class GenerateRequest(BaseModel):
         return v
 
 
+class GenerateMultiTableRequest(BaseModel):
+    """Request model for generating multiple tables with relations."""
+    schemas: Dict[str, Dict[str, Any]] = Field(..., description="Multiple table schemas (table_name -> schema)")
+    count: Dict[str, int] = Field(..., description="Number of records per table (table_name -> count)")
+    seed: Optional[int] = Field(None, description="Random seed for reproducible results")
+    format: ExportFormat = Field(ExportFormat.json, description="Export format")
+    
+    @validator('schemas')
+    def validate_schemas(cls, v):
+        """Validate that all schemas are valid."""
+        if not isinstance(v, dict):
+            raise ValueError("Schemas must be a dictionary")
+        
+        for table_name, schema in v.items():
+            if not isinstance(schema, dict):
+                raise ValueError(f"Schema for table '{table_name}' must be a dictionary")
+            if 'type' not in schema:
+                raise ValueError(f"Schema for table '{table_name}' must have a 'type' property")
+        
+        return v
+    
+    @validator('count')
+    def validate_count(cls, v, values):
+        """Validate count matches schema tables."""
+        schemas = values.get('schemas', {})
+        if not isinstance(v, dict):
+            raise ValueError("Count must be a dictionary")
+        
+        # Check all schemas have counts
+        missing_counts = set(schemas.keys()) - set(v.keys())
+        if missing_counts:
+            raise ValueError(f"Missing count for tables: {missing_counts}")
+        
+        # Validate count values
+        for table_name, count in v.items():
+            if not isinstance(count, int) or count <= 0:
+                raise ValueError(f"Count for table '{table_name}' must be a positive integer")
+            if count > 100000:
+                raise ValueError(f"Count for table '{table_name}' exceeds maximum limit (100000)")
+        
+        return v
+
+
 class GenerateResponse(BaseModel):
     """Response model for data generation."""
     success: bool = Field(True, description="Whether the operation succeeded")
@@ -45,6 +88,18 @@ class GenerateResponse(BaseModel):
     seed: Optional[int] = Field(None, description="Seed used for generation")
     format: str = Field(..., description="Format of the data")
     message: str = Field("Data generated successfully", description="Status message")
+
+
+class GenerateMultiTableResponse(BaseModel):
+    """Response model for multiple table generation."""
+    success: bool = Field(True, description="Whether the operation succeeded")
+    data: Dict[str, List[Dict[str, Any]]] = Field(..., description="Generated data by table name")
+    count: Dict[str, int] = Field(..., description="Number of records generated per table")
+    tables_generated: int = Field(..., description="Number of tables generated")
+    total_records: int = Field(..., description="Total records across all tables")
+    seed: Optional[int] = Field(None, description="Seed used for generation")
+    format: str = Field(..., description="Format of the data")
+    message: str = Field("Multi-table data generated successfully", description="Status message")
 
 
 class GenerateFileRequest(BaseModel):
@@ -73,6 +128,57 @@ class GenerateFileRequest(BaseModel):
         if values.get('format') == ExportFormat.sql and not v:
             raise ValueError("Table name is required for SQL format")
         return v
+
+
+class GenerateMultiTableFileRequest(BaseModel):
+    """Request model for generating multiple tables to file."""
+    schemas: Dict[str, Dict[str, Any]] = Field(..., description="Multiple table schemas (table_name -> schema)")
+    count: Dict[str, int] = Field(..., description="Number of records per table (table_name -> count)")
+    seed: Optional[int] = Field(None, description="Random seed for reproducible results")
+    format: ExportFormat = Field(ExportFormat.json, description="Export format")
+    filename: str = Field(..., description="Base filename (table names will be appended)")
+    
+    @validator('schemas')
+    def validate_schemas(cls, v):
+        """Validate that all schemas are valid."""
+        if not isinstance(v, dict):
+            raise ValueError("Schemas must be a dictionary")
+        
+        for table_name, schema in v.items():
+            if not isinstance(schema, dict):
+                raise ValueError(f"Schema for table '{table_name}' must be a dictionary")
+            if 'type' not in schema:
+                raise ValueError(f"Schema for table '{table_name}' must have a 'type' property")
+        
+        return v
+    
+    @validator('count')
+    def validate_count(cls, v, values):
+        """Validate count matches schema tables."""
+        schemas = values.get('schemas', {})
+        if not isinstance(v, dict):
+            raise ValueError("Count must be a dictionary")
+        
+        # Check all schemas have counts
+        missing_counts = set(schemas.keys()) - set(v.keys())
+        if missing_counts:
+            raise ValueError(f"Missing count for tables: {missing_counts}")
+        
+        # Validate count values
+        for table_name, count in v.items():
+            if not isinstance(count, int) or count <= 0:
+                raise ValueError(f"Count for table '{table_name}' must be a positive integer")
+            if count > 100000:
+                raise ValueError(f"Count for table '{table_name}' exceeds maximum limit (100000)")
+        
+        return v
+    
+    @validator('filename')
+    def validate_filename(cls, v):
+        """Validate filename."""
+        if not v or len(v.strip()) == 0:
+            raise ValueError("Filename cannot be empty")
+        return v.strip()
 
 
 class SeedRequest(BaseModel):
@@ -189,42 +295,3 @@ class DatabaseSchemaResponse(BaseModel):
     schemas: Dict[str, Dict[str, Any]] = Field(..., description="Schema for each table")
     table_count: int = Field(..., description="Number of tables processed")
     message: str = Field("Database schema retrieved successfully", description="Status message")
-
-class TableSchemaRequest(BaseModel):
-    """Request model for getting table schema."""
-    connection_string: str = Field(..., description="Database connection string")
-    table_name: str = Field(..., description="Name of the table to introspect")
-    
-    @validator('connection_string')
-    def validate_connection_string(cls, v):
-        """Validate connection string format."""
-        if not v or len(v.strip()) == 0:
-            raise ValueError("Connection string cannot be empty")
-        
-        supported_drivers = ['postgresql', 'mysql', 'sqlite', 'mssql']
-        if not any(driver in v.lower() for driver in supported_drivers):
-            raise ValueError(f"Unsupported database driver. Supported: {supported_drivers}")
-        
-        return v
-    
-    @validator('table_name')
-    def validate_table_name(cls, v):
-        """Validate table name."""
-        if not v or len(v.strip()) == 0:
-            raise ValueError("Table name cannot be empty")
-        return v.strip()
-
-
-class TableSchemaResponse(BaseModel):
-    """Response model for table schema."""
-    success: bool = Field(True, description="Whether the operation succeeded")
-    table_name: str = Field(..., description="Name of the introspected table")
-    table_schema: Dict[str, Any] = Field(..., description="JSON Schema for the table", alias="schema")
-    column_count: int = Field(..., description="Number of columns in the table")
-    primary_keys: List[str] = Field(default_factory=list, description="List of primary key columns")
-    message: str = Field("Schema retrieved successfully", description="Status message")
-    
-    class Config:
-        populate_by_name = True
-
-

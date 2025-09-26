@@ -23,6 +23,6 @@ mypy>=1.0.0
 
 # Optional database drivers
 # Uncomment based on your database needs:
-# psycopg2-binary>=2.9.0     # PostgreSQL
-# pymysql>=1.0.0             # MySQL
-# pyodbc>=4.0.0              # SQL Server
+psycopg2-binary>=2.9.0     # PostgreSQL
+pymysql>=1.0.0             # MySQL
+pyodbc>=4.0.0              # SQL Server

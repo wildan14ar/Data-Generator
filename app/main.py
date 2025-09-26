@@ -7,12 +7,17 @@ import logging
 from datetime import datetime
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.router import api_router
+from app.api import generate, seed, files, introspect
+from app.models.schemas import (
+    HealthResponse, StatsResponse,
+    SchemaValidationRequest, SchemaValidationResponse
+)
+from app.utils.validators import validate_schema, get_schema_features
 from app.core.config import get_settings
 from app.core.exceptions import setup_exception_handlers
 
@@ -76,8 +81,71 @@ def create_app() -> FastAPI:
     # Setup exception handlers
     setup_exception_handlers(app)
     
-    # Include routers
-    app.include_router(api_router, prefix=settings.API_STR)
+    # Include API routers with prefix
+    app.include_router(generate.router, prefix=settings.API_STR)
+    app.include_router(seed.router, prefix=settings.API_STR)
+    app.include_router(files.router, prefix=settings.API_STR)
+    app.include_router(introspect.router, prefix=settings.API_STR)
+    
+    # System endpoints (health, stats) - directly in main app
+    @app.get(f"{settings.API_STR}/health", response_model=HealthResponse, tags=["System"])
+    async def health_check():
+        """Health check endpoint."""
+        return HealthResponse(
+            timestamp=datetime.now().isoformat(),
+            version=settings.VERSION,
+            uptime=str(datetime.now() - datetime.now())  # Will be overridden by app state
+        )
+
+    @app.get(f"{settings.API_STR}/stats", response_model=StatsResponse, tags=["System"])
+    async def get_stats(request: Request):
+        """Get API usage statistics."""
+        start_time = getattr(request.app.state, 'start_time', datetime.now())
+        stats = getattr(request.app.state, 'stats', {
+            "total_requests": 0,
+            "total_records_generated": 0,
+            "format_usage": {},
+            "generation_times": []
+        })
+        
+        uptime = datetime.now() - start_time
+        avg_time = (sum(stats["generation_times"]) / len(stats["generation_times"])) if stats["generation_times"] else 0
+        
+        return StatsResponse(
+            total_requests=stats["total_requests"],
+            total_records_generated=stats["total_records_generated"],
+            popular_formats=stats["format_usage"],
+            average_generation_time=avg_time,
+            uptime_hours=uptime.total_seconds() / 3600
+        )
+
+    # Schema validation endpoint - directly in main app
+    @app.post(f"{settings.API_STR}/validate-schema", response_model=SchemaValidationResponse, tags=["Schema Validation"])
+    async def validate_schema_endpoint(request: SchemaValidationRequest):
+        """Validate JSON schema."""
+        try:
+            schema = request.data_schema
+            
+            # Validate schema
+            is_valid, errors, warnings = validate_schema(schema)
+            
+            # Get supported features
+            supported_features = get_schema_features(schema)
+            
+            return SchemaValidationResponse(
+                valid=is_valid,
+                errors=errors,
+                warnings=warnings,
+                schema_type=schema.get('type'),
+                supported_features=supported_features
+            )
+            
+        except Exception as e:
+            logger.error(f"Schema validation failed: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Schema validation error: {str(e)}"
+            )
     
     # Health check endpoint
     @app.get("/")

@@ -68,7 +68,7 @@ async def generate_data_endpoint(
         
         # Generate data
         data = generate_data(
-            request.schema,
+            request.data_schema,
             request.count,
             request.model_name,
             request.seed
@@ -110,7 +110,7 @@ async def generate_to_file(
         
         # Generate data
         data = generate_data(
-            request.schema,
+            request.data_schema,
             request.count,
             request.model_name,
             request.seed

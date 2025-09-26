@@ -18,7 +18,7 @@ router = APIRouter()
 async def validate_schema_endpoint(request: SchemaValidationRequest):
     """Validate JSON schema."""
     try:
-        schema = request.schema
+        schema = request.data_schema
         
         # Validate schema
         is_valid, errors, warnings = validate_schema(schema)

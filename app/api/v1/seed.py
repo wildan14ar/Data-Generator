@@ -52,7 +52,7 @@ async def seed_database(
         
         # Generate data
         data = generate_data(
-            request.schema,
+            request.data_schema,
             request.count,
             request.model_name,
             request.seed

@@ -17,13 +17,16 @@ class ExportFormat(str, Enum):
 
 class GenerateRequest(BaseModel):
     """Request model for data generation."""
-    schema: Dict[str, Any] = Field(..., description="JSON Schema for data generation")
+    data_schema: Dict[str, Any] = Field(..., description="JSON Schema for data generation", alias="schema")
     count: int = Field(10, ge=1, le=100000, description="Number of records to generate")
     model_name: Optional[str] = Field("Data", description="Model name for referencing")
     seed: Optional[int] = Field(None, description="Random seed for reproducible results")
     format: ExportFormat = Field(ExportFormat.json, description="Export format")
     
-    @validator('schema')
+    class Config:
+        populate_by_name = True
+    
+    @validator('data_schema')
     def validate_schema(cls, v):
         """Validate that schema has required properties."""
         if not isinstance(v, dict):
@@ -46,13 +49,16 @@ class GenerateResponse(BaseModel):
 
 class GenerateFileRequest(BaseModel):
     """Request model for generating data to file."""
-    schema: Dict[str, Any] = Field(..., description="JSON Schema for data generation")
+    data_schema: Dict[str, Any] = Field(..., description="JSON Schema for data generation", alias="schema")
     count: int = Field(10, ge=1, le=100000, description="Number of records to generate")
     model_name: Optional[str] = Field("Data", description="Model name for referencing")
     seed: Optional[int] = Field(None, description="Random seed for reproducible results")
     format: ExportFormat = Field(ExportFormat.json, description="Export format")
     filename: str = Field(..., description="Output filename")
     table_name: Optional[str] = Field(None, description="Table name (required for SQL format)")
+    
+    class Config:
+        populate_by_name = True
     
     @validator('filename')
     def validate_filename(cls, v):
@@ -71,13 +77,16 @@ class GenerateFileRequest(BaseModel):
 
 class SeedRequest(BaseModel):
     """Request model for database seeding."""
-    schema: Dict[str, Any] = Field(..., description="JSON Schema for data generation")
+    data_schema: Dict[str, Any] = Field(..., description="JSON Schema for data generation", alias="schema")
     count: int = Field(10, ge=1, le=100000, description="Number of records to generate")
     model_name: Optional[str] = Field("Data", description="Model name for referencing")
     seed: Optional[int] = Field(None, description="Random seed for reproducible results")
     connection_string: str = Field(..., description="Database connection string")
     table_name: str = Field(..., description="Target table name")
     batch_size: int = Field(1000, ge=1, le=10000, description="Batch size for insertion")
+    
+    class Config:
+        populate_by_name = True
     
     @validator('connection_string')
     def validate_connection_string(cls, v):
@@ -111,7 +120,10 @@ class SeedResponse(BaseModel):
 
 class SchemaValidationRequest(BaseModel):
     """Request model for schema validation."""
-    schema: Dict[str, Any] = Field(..., description="JSON Schema to validate")
+    data_schema: Dict[str, Any] = Field(..., description="JSON Schema to validate", alias="schema")
+    
+    class Config:
+        populate_by_name = True
 
 
 class SchemaValidationResponse(BaseModel):

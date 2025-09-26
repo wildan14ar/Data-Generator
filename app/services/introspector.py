@@ -3,7 +3,7 @@ Database schema introspection service
 """
 
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from sqlalchemy import create_engine, MetaData, inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
@@ -120,14 +120,11 @@ def get_table_schema(connection_string: str, table_name: str) -> Dict[str, Any]:
         raise SchemaIntrospectionError(f"Failed to introspect table schema: {e}")
 
 
-def get_database_schema(
-    connection_string: str, tables: Optional[List[str]] = None
-) -> Dict[str, Any]:
-    """Get schema information for multiple tables or entire database.
+def get_database_schema(connection_string: str) -> Dict[str, Any]:
+    """Get schema information for entire database.
 
     Args:
         connection_string: Database connection string
-        tables: Optional list of specific tables to introspect. If None, all tables will be included.
 
     Returns:
         Dictionary with table names as keys and their schemas as values
@@ -144,15 +141,8 @@ def get_database_schema(
             logger.warning("No tables found in database")
             return {}
 
-        # Determine which tables to process
-        if tables is None:
-            tables_to_process = available_tables
-        else:
-            # Validate requested tables exist
-            missing_tables = [t for t in tables if t not in available_tables]
-            if missing_tables:
-                raise SchemaIntrospectionError(f"Tables not found: {missing_tables}")
-            tables_to_process = tables
+        # Process all available tables
+        tables_to_process = available_tables
 
         # Get schema for each table
         database_schema = {}

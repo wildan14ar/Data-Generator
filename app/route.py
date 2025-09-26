@@ -76,16 +76,11 @@ async def cleanup_file(file_path: Path, delay: int):
     tags=["Database Operations"],
 )
 async def introspect_database_schema(request: DatabaseSchemaRequest):
-    """Get JSON Schema for multiple tables or entire database."""
+    """Get JSON Schema for entire database."""
     try:
-        tables_info = (
-            f"all tables"
-            if not request.tables
-            else f"tables: {', '.join(request.tables)}"
-        )
-        logger.info(f"Introspecting database schema for {tables_info}")
+        logger.info("Introspecting database schema for all tables")
 
-        schemas = get_database_schema(request.connection_string, request.tables)
+        schemas = get_database_schema(request.connection_string)
 
         return DatabaseSchemaResponse(
             schemas=schemas,
@@ -126,7 +121,7 @@ async def generate_endpoint(request: DataGenerateRequest, http_request: Request)
         logger.info(f"Generating data for {len(request.schemas)} tables")
 
         # Generate multi-table data
-        table_data = generate_data(request.schemas, request.count, request.seed)
+        table_data = generate_data(request.schemas, request.count)
 
         generation_time = time.time() - start_time
         total_records = sum(len(data) for data in table_data.values())
@@ -139,7 +134,6 @@ async def generate_endpoint(request: DataGenerateRequest, http_request: Request)
             count=request.count,
             tables_generated=len(table_data),
             total_records=total_records,
-            seed=request.seed,
             format=request.format.value,
         )
 

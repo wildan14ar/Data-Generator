@@ -11,9 +11,9 @@ class ExportFormat(str, Enum):
     """Supported export formats."""
 
     json = "json"
-    csv = "csv"
+    excel = "excel"
     sql = "sql"
-    parquet = "parquet"
+    db = "database"
 
 
 class HealthResponse(BaseModel):
@@ -48,6 +48,37 @@ class ErrorResponse(BaseModel):
     error_type: str = Field("GeneralError", description="Type of error")
     status_code: int = Field(400, description="HTTP status code")
 
+class DatabaseSchemaRequest(BaseModel):
+    """Request model for getting database schema (all tables)."""
+
+    connection_string: str = Field(..., description="Database connection string")
+
+    @validator("connection_string")
+    def validate_connection_string(cls, v):
+        """Validate connection string format."""
+        if not v or len(v.strip()) == 0:
+            raise ValueError("Connection string cannot be empty")
+
+        supported_drivers = ["postgresql", "mysql", "sqlite", "mssql"]
+        if not any(driver in v.lower() for driver in supported_drivers):
+            raise ValueError(
+                f"Unsupported database driver. Supported: {supported_drivers}"
+            )
+
+        return v
+
+
+class DatabaseSchemaResponse(BaseModel):
+    """Response model for database schema."""
+
+    success: bool = Field(True, description="Whether the operation succeeded")
+    schemas: Dict[str, Dict[str, Any]] = Field(..., description="Schema for each table")
+    table_count: int = Field(..., description="Number of tables processed")
+    message: str = Field(
+        "Database schema retrieved successfully", description="Status message"
+    )
+
+
 
 class DataGenerateRequest(BaseModel):
     """Request model for generating multiple tables with relations."""
@@ -57,9 +88,6 @@ class DataGenerateRequest(BaseModel):
     )
     count: Dict[str, int] = Field(
         ..., description="Number of records per table (table_name -> count)"
-    )
-    seed: Optional[int] = Field(
-        None, description="Random seed for reproducible results"
     )
     format: ExportFormat = Field(ExportFormat.json, description="Export format")
 
@@ -119,42 +147,8 @@ class DataGenerateResponse(BaseModel):
     )
     tables_generated: int = Field(..., description="Number of tables generated")
     total_records: int = Field(..., description="Total records across all tables")
-    seed: Optional[int] = Field(None, description="Seed used for generation")
     format: str = Field(..., description="Format of the data")
     message: str = Field(
         "Multi-table data generated successfully", description="Status message"
     )
 
-
-class DatabaseSchemaRequest(BaseModel):
-    """Request model for getting database schema (multiple tables)."""
-
-    connection_string: str = Field(..., description="Database connection string")
-    tables: Optional[List[str]] = Field(
-        None, description="Specific tables to introspect (if None, all tables)"
-    )
-
-    @validator("connection_string")
-    def validate_connection_string(cls, v):
-        """Validate connection string format."""
-        if not v or len(v.strip()) == 0:
-            raise ValueError("Connection string cannot be empty")
-
-        supported_drivers = ["postgresql", "mysql", "sqlite", "mssql"]
-        if not any(driver in v.lower() for driver in supported_drivers):
-            raise ValueError(
-                f"Unsupported database driver. Supported: {supported_drivers}"
-            )
-
-        return v
-
-
-class DatabaseSchemaResponse(BaseModel):
-    """Response model for database schema."""
-
-    success: bool = Field(True, description="Whether the operation succeeded")
-    schemas: Dict[str, Dict[str, Any]] = Field(..., description="Schema for each table")
-    table_count: int = Field(..., description="Number of tables processed")
-    message: str = Field(
-        "Database schema retrieved successfully", description="Status message"
-    )

@@ -245,15 +245,13 @@ def normalize_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
 
 def generate_data(
     schemas: Dict[str, Dict[str, Any]], 
-    counts: Dict[str, int], 
-    seed: Optional[int] = None
+    counts: Dict[str, int]
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Generate data for multiple related tables.
     
     Args:
         schemas: Dictionary of table_name -> schema
         counts: Dictionary of table_name -> count  
-        seed: Optional random seed for reproducible results
         
     Returns:
         Dictionary of table_name -> generated_data
@@ -269,11 +267,6 @@ def generate_data(
     
     # Clear caches for fresh generation
     clear_caches()
-    
-    if seed is not None:
-        random.seed(seed)
-        Faker.seed(seed)
-        logger.info(f"Using seed: {seed}")
     
     # Analyze dependencies to determine generation order
     generation_order = _determine_generation_order(schemas)

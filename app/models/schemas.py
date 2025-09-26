@@ -166,9 +166,10 @@ class ErrorResponse(BaseModel):
 # Database Schema Introspection Models
 # ============================================
 
-class IntrospectTablesRequest(BaseModel):
-    """Request model for getting database tables."""
+class DatabaseSchemaRequest(BaseModel):
+    """Request model for getting database schema (multiple tables)."""
     connection_string: str = Field(..., description="Database connection string")
+    tables: Optional[List[str]] = Field(None, description="Specific tables to introspect (if None, all tables)")
     
     @validator('connection_string')
     def validate_connection_string(cls, v):
@@ -182,16 +183,14 @@ class IntrospectTablesRequest(BaseModel):
         
         return v
 
-
-class IntrospectTablesResponse(BaseModel):
-    """Response model for database tables."""
+class DatabaseSchemaResponse(BaseModel):
+    """Response model for database schema."""
     success: bool = Field(True, description="Whether the operation succeeded")
-    tables: List[str] = Field(..., description="List of table names")
-    count: int = Field(..., description="Number of tables found")
-    message: str = Field("Tables retrieved successfully", description="Status message")
+    schemas: Dict[str, Dict[str, Any]] = Field(..., description="Schema for each table")
+    table_count: int = Field(..., description="Number of tables processed")
+    message: str = Field("Database schema retrieved successfully", description="Status message")
 
-
-class IntrospectTableSchemaRequest(BaseModel):
+class TableSchemaRequest(BaseModel):
     """Request model for getting table schema."""
     connection_string: str = Field(..., description="Database connection string")
     table_name: str = Field(..., description="Name of the table to introspect")
@@ -216,7 +215,7 @@ class IntrospectTableSchemaRequest(BaseModel):
         return v.strip()
 
 
-class IntrospectTableSchemaResponse(BaseModel):
+class TableSchemaResponse(BaseModel):
     """Response model for table schema."""
     success: bool = Field(True, description="Whether the operation succeeded")
     table_name: str = Field(..., description="Name of the introspected table")
@@ -229,27 +228,3 @@ class IntrospectTableSchemaResponse(BaseModel):
         populate_by_name = True
 
 
-class IntrospectDatabaseSchemaRequest(BaseModel):
-    """Request model for getting database schema (multiple tables)."""
-    connection_string: str = Field(..., description="Database connection string")
-    tables: Optional[List[str]] = Field(None, description="Specific tables to introspect (if None, all tables)")
-    
-    @validator('connection_string')
-    def validate_connection_string(cls, v):
-        """Validate connection string format."""
-        if not v or len(v.strip()) == 0:
-            raise ValueError("Connection string cannot be empty")
-        
-        supported_drivers = ['postgresql', 'mysql', 'sqlite', 'mssql']
-        if not any(driver in v.lower() for driver in supported_drivers):
-            raise ValueError(f"Unsupported database driver. Supported: {supported_drivers}")
-        
-        return v
-
-
-class IntrospectDatabaseSchemaResponse(BaseModel):
-    """Response model for database schema."""
-    success: bool = Field(True, description="Whether the operation succeeded")
-    schemas: Dict[str, Dict[str, Any]] = Field(..., description="Schema for each table")
-    table_count: int = Field(..., description="Number of tables processed")
-    message: str = Field("Database schema retrieved successfully", description="Status message")

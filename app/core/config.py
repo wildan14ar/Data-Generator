@@ -19,7 +19,6 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     
     # API settings
-    API_STR: str = "/api"
     DEBUG: bool = True
     
     # Security

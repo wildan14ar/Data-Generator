@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import generate, seed, files, introspect
+from app.api import generate, database
 from app.models.schemas import (
     HealthResponse, StatsResponse,
     SchemaValidationRequest, SchemaValidationResponse
@@ -82,13 +82,11 @@ def create_app() -> FastAPI:
     setup_exception_handlers(app)
     
     # Include API routers with prefix
-    app.include_router(generate.router, prefix=settings.API_STR)
-    app.include_router(seed.router, prefix=settings.API_STR)
-    app.include_router(files.router, prefix=settings.API_STR)
-    app.include_router(introspect.router, prefix=settings.API_STR)
+    app.include_router(generate.router)
+    app.include_router(database.router)
     
     # System endpoints (health, stats) - directly in main app
-    @app.get(f"{settings.API_STR}/health", response_model=HealthResponse, tags=["System"])
+    @app.get("/health", response_model=HealthResponse, tags=["System"])
     async def health_check():
         """Health check endpoint."""
         return HealthResponse(
@@ -97,7 +95,7 @@ def create_app() -> FastAPI:
             uptime=str(datetime.now() - datetime.now())  # Will be overridden by app state
         )
 
-    @app.get(f"{settings.API_STR}/stats", response_model=StatsResponse, tags=["System"])
+    @app.get("/stats", response_model=StatsResponse, tags=["System"])
     async def get_stats(request: Request):
         """Get API usage statistics."""
         start_time = getattr(request.app.state, 'start_time', datetime.now())
@@ -120,7 +118,7 @@ def create_app() -> FastAPI:
         )
 
     # Schema validation endpoint - directly in main app
-    @app.post(f"{settings.API_STR}/validate-schema", response_model=SchemaValidationResponse, tags=["Schema Validation"])
+    @app.post("/validate-schema", response_model=SchemaValidationResponse, tags=["Schema Validation"])
     async def validate_schema_endpoint(request: SchemaValidationRequest):
         """Validate JSON schema."""
         try:
@@ -156,7 +154,7 @@ def create_app() -> FastAPI:
             "version": settings.VERSION,
             "status": "running",
             "docs_url": "/docs" if settings.DEBUG else None,
-            "health_check": "/api/health"
+            "health_check": "/health"
         }
     
     return app

@@ -1,5 +1,5 @@
 """
-Data generation endpoints
+Data generation and file management endpoints
 """
 
 import time
@@ -24,7 +24,7 @@ from app.core.config import get_settings
 
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/data", tags=["Data Generation"])
+router = APIRouter(prefix="/data", tags=["Data Generation & Files"])
 settings = get_settings()
 
 
@@ -51,6 +51,10 @@ async def cleanup_file(file_path: Path, delay: int):
     except Exception as e:
         logger.error(f"Failed to cleanup file {file_path}: {e}")
 
+
+# ============================================
+# Data Generation Endpoints
+# ============================================
 
 @router.post("/generate", response_model=GenerateResponse)
 async def generate_data_endpoint(
@@ -146,7 +150,7 @@ async def generate_to_file(
             "message": "File generated successfully",
             "file_id": file_id,
             "filename": f"{file_id}_{request.filename}{file_extension}",
-            "download_url": f"/files/download/{file_id}_{request.filename}{file_extension}",
+            "download_url": f"/data/files/download/{file_id}_{request.filename}{file_extension}",
             "count": len(data),
             "format": request.format.value,
             "expires_in": f"{cleanup_hours} hour{'s' if cleanup_hours != 1 else ''}"
@@ -157,4 +161,44 @@ async def generate_to_file(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
+        )
+
+
+# ============================================
+# File Management Endpoints
+# ============================================
+
+@router.get("/files/download/{filename}")
+async def download_file(filename: str):
+    """Download generated file."""
+    try:
+        temp_dir = Path(tempfile.gettempdir()) / "datagen_api"
+        file_path = temp_dir / filename
+        
+        if not file_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="File not found or expired"
+            )
+        
+        # Security check - ensure file is within temp directory
+        if not str(file_path.resolve()).startswith(str(temp_dir.resolve())):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied"
+            )
+        
+        return FileResponse(
+            path=str(file_path),
+            filename=filename,
+            media_type='application/octet-stream'
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"File download failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="File download failed"
         )

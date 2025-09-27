@@ -28,9 +28,13 @@ def clear_caches():
     # Clear primary key counters
     if hasattr(generate_sample, '_pk_counter'):
         generate_sample._pk_counter.clear()
+    
+    # Clear primary key generation counters
+    if hasattr(_generate_primary_key, '_pk_counter'):
+        _generate_primary_key._pk_counter.clear()
 
 
-def generate_sample(schema: Dict[str, Any], model_name: Optional[str] = None) -> Any:
+def generate_sample(schema: Dict[str, Any], model_name: Optional[str] = None, field_name: Optional[str] = None) -> Any:
     """Generate single value from schema.
     
     Args:
@@ -72,6 +76,10 @@ def generate_sample(schema: Dict[str, Any], model_name: Optional[str] = None) ->
         fmt = schema.get("format")
         min_len = schema.get("minLength", 3)
         max_len = schema.get("maxLength", 12)
+        
+        # Special handling for primary keys
+        if schema.get("primary_key"):
+            return _generate_primary_key(model_name, field_name, schema)
 
         try:
             if fmt == "email":
@@ -137,7 +145,7 @@ def generate_sample(schema: Dict[str, Any], model_name: Optional[str] = None) ->
         count = random.randint(min_items, max_items)
         
         return [
-            generate_sample(schema["items"], model_name)
+            generate_sample(schema["items"], model_name, f"{field_name}_item" if field_name else None)
             for _ in range(count)
         ]
 
@@ -149,7 +157,7 @@ def generate_sample(schema: Dict[str, Any], model_name: Optional[str] = None) ->
             return {}
             
         return {
-            key: generate_sample(sub_schema, model_name)
+            key: generate_sample(sub_schema, model_name, key)
             for key, sub_schema in properties.items()
         }
 
@@ -173,6 +181,56 @@ def generate_sample(schema: Dict[str, Any], model_name: Optional[str] = None) ->
         return random.choice(available_refs)
 
     raise GenerationError(f"Unsupported schema type: {t}")
+
+
+def _generate_primary_key(model_name: Optional[str], field_name: Optional[str], schema: Dict[str, Any]) -> str:
+    """Generate unique primary key with format: 3-letter-prefix + '-' + 3-10 digit number.
+    
+    Args:
+        model_name: Optional model/table name
+        field_name: Optional field name (preferred for prefix)
+        schema: Schema dictionary containing field information
+        
+    Returns:
+        Generated primary key string
+    """
+    # Initialize primary key counter if not exists
+    if not hasattr(_generate_primary_key, '_pk_counter'):
+        _generate_primary_key._pk_counter = {}
+    
+    # Use field name as base for prefix, fallback to model name, then 'gen'
+    if field_name:
+        # Take first 3 characters of field name, lowercase
+        prefix = field_name[:3].lower()
+    elif model_name:
+        # Take first 3 characters of model name, lowercase
+        prefix = model_name[:3].lower()
+    else:
+        prefix = "gen"
+    
+    # Ensure prefix is exactly 3 characters
+    if len(prefix) < 3:
+        prefix = prefix.ljust(3, 'x')  # pad with 'x' if too short
+    elif len(prefix) > 3:
+        prefix = prefix[:3]
+    
+    # Generate unique counter for this prefix
+    counter_key = f"{prefix}_pk"
+    if counter_key not in _generate_primary_key._pk_counter:
+        _generate_primary_key._pk_counter[counter_key] = 0
+    
+    _generate_primary_key._pk_counter[counter_key] += 1
+    counter = _generate_primary_key._pk_counter[counter_key]
+    
+    # Generate random number with 3-10 digits
+    random_digits = random.randint(3, 10)
+    min_num = 10 ** (random_digits - 1)  # minimum number with required digits
+    max_num = (10 ** random_digits) - 1   # maximum number with required digits
+    
+    # Add counter to ensure uniqueness even with same random number
+    random_part = random.randint(min_num, max_num - counter) + counter
+    
+    return f"{prefix}-{random_part}"
 
 
 def _generate_pattern(pattern: str) -> str:
@@ -295,7 +353,7 @@ def generate_data(
             
             for i in range(table_count):
                 try:
-                    record = generate_sample(normalized_schema, table_name)
+                    record = generate_sample(normalized_schema, table_name, None)
                     table_data.append(record)
                 except Exception as e:
                     logger.error(f"Error generating record {i+1} for table '{table_name}': {e}")

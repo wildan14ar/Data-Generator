@@ -81,15 +81,35 @@ def generate_sample(schema: Dict[str, Any], model_name: Optional[str] = None, fi
         if schema.get("primary_key"):
             return _generate_primary_key(model_name, field_name, schema)
 
+        # Special handling for date-related fields even if they don't have explicit format
+        col_lower = (field_name or "").lower()
+        if any(date_keyword in col_lower for date_keyword in ["date", "created", "updated", "birth", "expired", "start", "end", "time"]):
+            # Generate date within 5 years back and forward from now (YYYY-MM-DD format only)
+            from datetime import datetime, timedelta
+            current_date = datetime.now().date()
+            start_date = current_date - timedelta(days=5*365)  # 5 years back
+            end_date = current_date + timedelta(days=5*365)    # 5 years forward
+            return fake.date_between(start_date=start_date, end_date=end_date).strftime('%Y-%m-%d')
+
         try:
             if fmt == "email":
                 return fake.unique.email() if schema.get("unique") else fake.email()
             if fmt == "uuid":
                 return str(fake.unique.uuid4()) if schema.get("unique") else str(fake.uuid4())
             if fmt == "date":
-                return fake.date()
+                # Generate date within 5 years back and forward from now (YYYY-MM-DD format only)
+                from datetime import datetime, timedelta
+                current_date = datetime.now().date()
+                start_date = current_date - timedelta(days=5*365)  # 5 years back
+                end_date = current_date + timedelta(days=5*365)    # 5 years forward
+                return fake.date_between(start_date=start_date, end_date=end_date).strftime('%Y-%m-%d')
             if fmt == "datetime":  # Support datetime format from introspector
-                return fake.date_time().isoformat()
+                # Generate datetime within 5 years back and forward from now (YYYY-MM-DD format only, no time)
+                from datetime import datetime, timedelta
+                current_date = datetime.now().date()
+                start_date = current_date - timedelta(days=5*365)  # 5 years back
+                end_date = current_date + timedelta(days=5*365)    # 5 years forward
+                return fake.date_between(start_date=start_date, end_date=end_date).strftime('%Y-%m-%d')
             if fmt == "name":
                 return fake.name()
             if fmt == "uri":  # Support URI format from introspector

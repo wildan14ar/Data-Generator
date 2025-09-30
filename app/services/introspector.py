@@ -3,7 +3,7 @@ Database schema introspection service
 """
 
 import logging
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from sqlalchemy import create_engine, MetaData, inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
@@ -74,6 +74,24 @@ def get_table_schema(connection_string: str, table_name: str) -> Dict[str, Any]:
 
             # Get columns information
             columns = inspector.get_columns(table_name)
+            
+            # Enhance columns with enum values if available
+            for column in columns:
+                if hasattr(column['type'], 'enums'):
+                    # PostgreSQL ENUM type
+                    column['enum_values'] = list(column['type'].enums)
+                elif hasattr(column['type'], 'enum_class'):
+                    # SQLAlchemy Enum type
+                    column['enum_values'] = [e.value for e in column['type'].enum_class]
+                elif str(column['type']).lower().startswith('enum'):
+                    # MySQL ENUM type - extract values from type string
+                    import re
+                    enum_match = re.search(r"enum\('([^']+)'(?:,'([^']+)')*\)", str(column['type']).lower())
+                    if enum_match:
+                        # Extract all enum values from the match
+                        enum_str = str(column['type'])
+                        enum_values = re.findall(r"'([^']+)'", enum_str)
+                        column['enum_values'] = enum_values
 
             # Get primary keys
             pk_constraint = inspector.get_pk_constraint(table_name)
@@ -199,9 +217,10 @@ def _convert_table_to_json_schema(
         col_type = str(column["type"]).lower()
         nullable = column.get("nullable", True)
         default = column.get("default")
+        enum_values = column.get("enum_values")
 
         # Convert SQL types to JSON Schema types
-        json_property = _sql_type_to_json_schema(col_type, col_name)
+        json_property = _sql_type_to_json_schema(col_type, col_name, enum_values)
 
         # Add constraints and metadata
         if not nullable and col_name not in primary_keys:
@@ -235,17 +254,45 @@ def _convert_table_to_json_schema(
     return schema
 
 
-def _sql_type_to_json_schema(sql_type: str, column_name: str) -> Dict[str, Any]:
+def _sql_type_to_json_schema(sql_type: str, column_name: str, enum_values: Optional[List[str]] = None) -> Dict[str, Any]:
     """Convert SQL data type to JSON Schema property.
 
     Args:
         sql_type: SQL data type as string
         column_name: Column name for context
+        enum_values: List of enum values if column is an enum type
 
     Returns:
         JSON Schema property dictionary
     """
     sql_type = sql_type.lower()
+
+    # Handle ENUM types first
+    if enum_values:
+        return {
+            "type": "string",
+            "enum": enum_values,
+            "description": f"Enum with values: {', '.join(enum_values)}"
+        }
+    
+    # Check if type string contains enum pattern (fallback for databases that store enum as string)
+    if "enum" in sql_type:
+        import re
+        # Try to extract enum values from type string like "enum('value1','value2')"
+        enum_match = re.findall(r"'([^']+)'", sql_type)
+        if enum_match:
+            return {
+                "type": "string",
+                "enum": enum_match,
+                "description": f"Enum with values: {', '.join(enum_match)}"
+            }
+        # If we can't extract values, treat as regular string with note
+        return {
+            "type": "string",
+            "description": f"Enum type (values not extractable from: {sql_type})",
+            "minLength": 1,
+            "maxLength": 50
+        }
 
     # Integer types
     if any(t in sql_type for t in ["integer", "int", "bigint", "smallint"]):

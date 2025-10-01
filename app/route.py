@@ -10,7 +10,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import FileResponse
 
-from app.models.schemas import (
+from app.schemas import (
     DataGenerateRequest,
     DataGenerateResponse,
     DatabaseSchemaRequest,

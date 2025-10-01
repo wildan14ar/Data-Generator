@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.route import router
-from app.models.schemas import (
+from app.schemas import (
     HealthResponse,
     StatsResponse,
 )

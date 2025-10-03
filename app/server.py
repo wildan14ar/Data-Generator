@@ -2,7 +2,6 @@
 FastAPI application factory and configuration
 """
 
-import os
 import logging
 from datetime import datetime
 from contextlib import asynccontextmanager
@@ -12,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.route import router
-from app.schemas import (
+from app.core.schemas import (
     HealthResponse,
     StatsResponse,
 )

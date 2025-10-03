@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "export_id": "f17cefc8-454d-404a-8dac-a300bca1e2a6",
+    "export_time": "2025-10-04T01:49:37.071391",
+    "format": "json",
+    "tables": [
+      "demo"
+    ],
+    "total_records": 1
+  },
+  "data": {
+    "demo": [
+      {
+        "id": 1,
+        "name": "Demo"
+      }
+    ]
+  }
+}

@@ -10,14 +10,14 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import FileResponse
 
-from app.schemas import (
+from app.core.schemas import (
     DataGenerateRequest,
     DataGenerateResponse,
     DatabaseSchemaRequest,
     DatabaseSchemaResponse,
 )
 from app.services.generator import generate_data
-from app.services.introspector import get_database_schema
+from app.introspector import get_database_schema
 from app.services.exporter import get_exporter
 from app.core.config import get_settings
 from app.core.exceptions import SchemaIntrospectionError, DatabaseError, ExportError

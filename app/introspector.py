@@ -8,7 +8,7 @@ from sqlalchemy import create_engine, MetaData, inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.core.exceptions import SchemaIntrospectionError, DatabaseError
+from app.config.exceptions import SchemaIntrospectionError, DatabaseError
 
 
 logger = logging.getLogger(__name__)

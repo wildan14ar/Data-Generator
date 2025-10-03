@@ -6,7 +6,7 @@ import random
 import logging
 from typing import Dict, List, Any, Optional
 
-from app.core.exceptions import GenerationError
+from app.config.exceptions import GenerationError
 from ..utils.cache_manager import clear_caches, get_ref_cache, set_ref_cache
 from ..utils.dependency_resolver import determine_generation_order
 from ..types.string_generator import generate_string

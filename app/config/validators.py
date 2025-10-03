@@ -5,7 +5,7 @@ Schema validation utilities
 import logging
 from typing import Dict, Any, List, Tuple
 
-from app.core.exceptions import SchemaValidationError
+from app.config.exceptions import SchemaValidationError
 
 
 logger = logging.getLogger(__name__)

@@ -10,7 +10,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import FileResponse
 
-from app.core.schemas import (
+from app.config.schemas import (
     DataGenerateRequest,
     DataGenerateResponse,
     DatabaseSchemaRequest,
@@ -19,8 +19,8 @@ from app.core.schemas import (
 from app.services.generator import generate_data
 from app.introspector import get_database_schema
 from app.services.exporter import get_exporter
-from app.core.config import get_settings
-from app.core.exceptions import SchemaIntrospectionError, DatabaseError, ExportError
+from app.config.Settings import get_settings
+from app.config.exceptions import SchemaIntrospectionError, DatabaseError, ExportError
 
 
 logger = logging.getLogger(__name__)

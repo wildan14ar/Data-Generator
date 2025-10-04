@@ -44,10 +44,10 @@ pip install -r requirements.txt
 
 ```bash
 # Development mode (with hot reload)
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.server:app --reload --host 0.0.0.0 --port 8000
 
 # Production mode
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+uvicorn app.server:app --host 0.0.0.0 --port 8000
 ```
 
 ### Access Points
@@ -94,143 +94,763 @@ datagen/
 - **Maintainability** - Clear structure for adding new features
 - **Scalability** - Modular design supports horizontal scaling
 
-## 🛠 API Endpoints
+## API Reference
 
-### Database Introspection
+This section provides detailed information about the Datagen RESTful API, including available endpoints, HTTP methods, request and response JSON schemas, and example usage.
 
-#### Get Database Schema
-```http
-GET /database/schema
-```
+### Base URL
 
-Automatically extract schemas from existing database tables.
+The API is served at the root path. For example, if your application is running locally, the base URL would be `http://localhost:8000`.
 
-**Request Body:**
+### System Endpoints
+
+#### GET /
+
+**Description:** Root endpoint providing basic API information.
+
+**Response Schema (`application/json`):**
 ```json
 {
-    "connection_string": "postgresql://user:pass@localhost:5432/dbname"
+  "type": "object",
+ "properties": {
+    "service": {
+      "type": "string",
+      "description": "Name of the service"
+    },
+    "version": {
+      "type": "string",
+      "description": "API version"
+    },
+    "status": {
+      "type": "string",
+      "description": "Service status"
+    },
+    "docs_url": {
+      "type": "string",
+      "nullable": true,
+      "description": "URL for API documentation (if debug mode is enabled)"
+    },
+    "health_check": {
+      "type": "string",
+      "description": "URL for health check endpoint"
+    }
+  },
+  "required": [
+    "service",
+    "version",
+    "status",
+    "docs_url",
+    "health_check"
+  ]
 }
+```
+
+**Example Response:**
+```json
+{
+  "service": "Datagen API",
+  "version": "1.0.0",
+  "status": "running",
+  "docs_url": "/docs",
+ "health_check": "/health"
+}
+```
+
+#### GET /health
+
+**Description:** Health check endpoint to verify the service status.
+
+**Response Schema (`HealthResponse`):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "description": "Service health status",
+      "default": "healthy"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Current timestamp"
+    },
+    "version": {
+      "type": "string",
+      "description": "API version",
+      "default": "1.0.0"
+    },
+    "uptime": {
+      "type": "string",
+      "description": "Service uptime"
+    }
+  },
+  "required": [
+    "timestamp",
+    "uptime"
+  ]
+}
+```
+
+**Example Response:**
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-10-05T04:18:12.000000",
+  "version": "1.0.0",
+  "uptime": "0:00:05.123456"
+}
+```
+
+#### GET /stats
+
+**Description:** Retrieves API usage statistics, including total requests, records generated, popular formats, and average generation time.
+
+**Response Schema (`StatsResponse`):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "total_requests": {
+      "type": "integer",
+      "description": "Total generation requests",
+      "default": 0
+    },
+    "total_records_generated": {
+      "type": "integer",
+      "description": "Total records generated",
+      "default": 0
+    },
+    "popular_formats": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "description": "Usage by format",
+      "default": {}
+    },
+    "average_generation_time": {
+      "type": "number",
+      "format": "float",
+      "description": "Average generation time in seconds",
+      "default": 0.0
+    },
+    "uptime_hours": {
+      "type": "number",
+      "format": "float",
+      "description": "Service uptime in hours",
+      "default": 0.0
+    }
+  },
+  "required": [
+    "total_requests",
+    "total_records_generated",
+    "popular_formats",
+    "average_generation_time",
+    "uptime_hours"
+  ]
+}
+```
+
+**Example Response:**
+```json
+{
+  "total_requests": 10,
+  "total_records_generated": 100,
+  "popular_formats": {
+    "json": 7,
+    "excel": 2,
+    "sql": 1
+  },
+  "average_generation_time": 0.5,
+  "uptime_hours": 1.25
+}
+```
+
+### Database Operations Endpoints
+
+#### GET /database/schema
+
+**Description:** Introspects the schema of an entire database, returning JSON schemas for all tables.
+
+**Request Schema (`DatabaseSchemaRequest`):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "connection_string": {
+      "type": "string",
+      "description": "Database connection string (e.g., 'postgresql://user:password@host:port/dbname', 'sqlite:///./test.db')"
+    }
+  },
+  "required": [
+    "connection_string"
+  ]
+}
+```
+
+**Example Request:**
+```
+GET /database/schema?connection_string=sqlite:///./test.db
+```
+
+**Response Schema (`DatabaseSchemaResponse`):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "description": "Whether the operation succeeded",
+      "default": true
+    },
+    "schemas": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "description": "JSON Schema for a specific table"
+      },
+      "description": "Schema for each table (table_name -> schema)"
+    },
+    "table_count": {
+      "type": "integer",
+      "description": "Number of tables processed"
+    },
+    "message": {
+      "type": "string",
+      "description": "Status message",
+      "default": "Database schema retrieved successfully"
+    }
+ },
+  "required": [
+    "schemas",
+    "table_count",
+    "message"
+  ]
+}
+```
+
+**Example Response:**
+```json
+{
+  "success": true,
+  "schemas": {
+    "users": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "integer", "primary_key": true },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" }
+      }
+    },
+    "products": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "integer", "primary_key": true },
+        "name": { "type": "string" },
+        "price": { "type": "number" }
+      }
+    }
+  },
+  "table_count": 2,
+  "message": "Database schema retrieved successfully for 2 tables"
+}
+```
+
+#### POST /database/schema/create
+
+**Description:** Creates database tables based on provided JSON schemas.
+
+**Request Schema (`CreateSchemaRequest`):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "connection_string": {
+      "type": "string",
+      "description": "Database connection string"
+    },
+    "schemas": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "description": "JSON Schema for a specific table"
+      },
+      "description": "Multiple table schemas (table_name -> schema)"
+    },
+    "dialect": {
+      "type": "string",
+      "description": "SQL dialect (postgresql, mysql, sqlite, mssql)",
+      "default": "postgresql"
+    },
+    "drop_existing": {
+      "type": "boolean",
+      "description": "Whether to drop existing tables before creation",
+      "default": false
+    },
+    "create_order": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "nullable": true,
+      "description": "Order of table creation (for foreign key dependencies)"
+    }
+  },
+  "required": [
+    "connection_string",
+    "schemas"
+  ]
+}
+```
+
+**Example Request:**
+```json
+POST /database/schema/create
+Content-Type: application/json
+
+{
+  "connection_string": "sqlite:///./test.db",
+  "schemas": {
+    "users": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "integer", "primary_key": true },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" }
+      }
+    },
+    "posts": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "integer", "primary_key": true },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "user_id": { "type": "integer", "foreign_key": "users.id" }
+      }
+    }
+  },
+  "dialect": "sqlite",
+  "drop_existing": true,
+  "create_order": ["users", "posts"]
+}
+```
+
+**Response Schema (`CreateSchemaResponse`):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "description": "Whether the operation succeeded",
+      "default": true
+    },
+    "tables_created": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "boolean"
+      },
+      "description": "Creation status for each table (table_name -> boolean)"
+    },
+    "tables_created_count": {
+      "type": "integer",
+      "description": "Number of tables successfully created"
+    },
+    "total_tables": {
+      "type": "integer",
+      "description": "Total number of tables attempted"
+    },
+    "message": {
+      "type": "string",
+      "description": "Status message",
+      "default": "Database schema created successfully"
+    },
+    "sql_statements": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "nullable": true,
+      "description": "Generated SQL statements (if available)"
+    }
+  },
+  "required": [
+    "tables_created",
+    "tables_created_count",
+    "total_tables",
+    "message"
+  ]
+}
+```
+
+**Example Response:**
+```json
+{
+  "success": true,
+ "tables_created": {
+    "users": true,
+    "posts": true
+  },
+  "tables_created_count": 2,
+  "total_tables": 2,
+  "message": "All 2 tables created successfully",
+  "sql_statements": [
+    "CREATE TABLE users (id INTEGER PRIMARY KEY, name VARCHAR, email VARCHAR);",
+    "CREATE TABLE posts (id INTEGER PRIMARY KEY, title VARCHAR, content VARCHAR, user_id INTEGER, FOREIGN KEY(user_id) REFERENCES users(id));"
+  ]
+}
+```
+
+### Data Generation Endpoints
+
+#### POST /data/generate
+
+**Description:** Generates data for multiple related tables and exports it in various formats (JSON, Excel, SQL, Database).
+
+**Request Schema (`DataGenerateRequest`):**
+```json
+{
+  "type": "object",
+  "properties": {
+    "schemas": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "description": "JSON Schema for a specific table"
+      },
+      "description": "Multiple table schemas (table_name -> schema)"
+    },
+    "count": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100000
+      },
+      "description": "Number of records per table (table_name -> count)"
+    },
+    "format": {
+      "$ref": "#/components/schemas/ExportFormat",
+      "description": "Export format (json, excel, sql, database)",
+      "default": "json"
+    },
+    "connection_string": {
+      "type": "string",
+      "nullable": true,
+      "description": "Database connection string (required for 'database' format)"
+    },
+    "filename_prefix": {
+      "type": "string",
+      "nullable": true,
+      "description": "Prefix for exported filenames",
+      "default": "datagen"
+    }
+  },
+  "required": [
+    "schemas",
+    "count"
+  ]
+}
+```
+
+**Example Request (JSON output):**
+```json
+POST /data/generate
+Content-Type: application/json
+
+{
+  "schemas": {
+    "users": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "integer", "primary_key": true },
+        "name": { "type": "string", "pattern": "[A-Z][a-z]{3,8}" },
+        "email": { "type": "string", "format": "email" }
+      }
+    },
+    "products": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "integer", "primary_key": true },
+        "name": { "type": "string", "pattern": "[A-Z][a-z]{5,10}" },
+        "price": { "type": "number", "minimum": 10, "maximum": 1000 }
+      }
+    }
+  },
+  "count": {
+    "users": 5,
+    "products": 10
+  },
+  "format": "json"
+}
+```
+
+**Example Request (Excel output):**
+```json
+POST /data/generate
+Content-Type: application/json
+
+{
+  "schemas": {
+    "users": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "integer", "primary_key": true },
+        "name": { "type": "string", "pattern": "[A-Z][a-z]{3,8}" },
+        "email": { "type": "string", "format": "email" }
+      }
+    }
+  },
+  "count": {
+    "users": 5
+  },
+  "format": "excel",
+  "filename_prefix": "my_data"
+}
+```
+
+**Example Request (Database output):**
+```json
+POST /data/generate
+Content-Type: application/json
+
+{
+  "schemas": {
+    "users": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "integer", "primary_key": true },
+        "name": { "type": "string", "pattern": "[A-Z][a-z]{3,8}" },
+        "email": { "type": "string", "format": "email" }
+      }
+    }
+  },
+  "count": {
+    "users": 5
+  },
+  "format": "database",
+  "connection_string": "sqlite:///./test.db"
+}
+```
+
+**Response Schema (`DataGenerateResponse`):**
+```json
+{
+  "type": "object",
+ "properties": {
+    "success": {
+      "type": "boolean",
+      "description": "Whether the operation succeeded",
+      "default": true
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      },
+      "nullable": true,
+      "description": "Generated data by table name (only for 'json' format)"
+    },
+    "count": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "description": "Number of records generated per table"
+    },
+    "tables_generated": {
+      "type": "integer",
+      "description": "Number of tables generated"
+    },
+    "total_records": {
+      "type": "integer",
+      "description": "Total records across all tables"
+    },
+    "format": {
+      "type": "string",
+      "description": "Format of the data"
+    },
+    "message": {
+      "type": "string",
+      "description": "Status message",
+      "default": "Multi-table data generated successfully"
+    },
+    "export_id": {
+      "type": "string",
+      "nullable": true,
+      "description": "Export ID for file-based exports (excel, sql)"
+    },
+    "filename": {
+      "type": "string",
+      "nullable": true,
+      "description": "Generated filename (excel, sql)"
+    },
+    "download_url": {
+      "type": "string",
+      "nullable": true,
+      "description": "Download URL for files (excel, sql)"
+    },
+    "file_size": {
+      "type": "integer",
+      "nullable": true,
+      "description": "File size in bytes (excel, sql)"
+    },
+    "expires_at": {
+      "type": "string",
+      "nullable": true,
+      "description": "File expiration time (excel, sql)"
+    },
+    "connection_summary": {
+      "type": "string",
+      "nullable": true,
+      "description": "Masked connection string (database)"
+    },
+    "tables_inserted": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "nullable": true,
+      "description": "Tables inserted to database (database)"
+    },
+    "insert_time": {
+      "type": "string",
+      "nullable": true,
+      "description": "Database insert timestamp (database)"
+    }
+  },
+  "required": [
+    "count",
+    "tables_generated",
+    "total_records",
+    "format",
+    "message"
+  ]
+}
+```
+
+**Example Response (JSON format):**
+```json
+{
+  "success": true,
+  "data": {
+    "users": [
+      { "id": 1, "name": "John", "email": "john@example.com" },
+      { "id": 2, "name": "Jane", "email": "jane@example.com" }
+    ],
+    "products": [
+      { "id": 101, "name": "Laptop", "price": 1200 },
+      { "id": 102, "name": "Mouse", "price": 25 }
+    ]
+  },
+  "count": {
+    "users": 2,
+    "products": 2
+  },
+  "tables_generated": 2,
+  "total_records": 4,
+  "format": "json",
+ "message": "Successfully generated 4 records for 2 tables"
+}
+```
+
+**Example Response (Excel/SQL format):**
+```json
+{
+  "success": true,
+  "count": {
+    "users": 5
+  },
+  "tables_generated": 1,
+  "total_records": 5,
+  "format": "excel",
+  "message": "Successfully generated and exported 5 records for 1 tables",
+  "export_id": "abcdef12345",
+  "filename": "my_data_12345.xlsx",
+  "download_url": "/files/download/my_data_12345.xlsx",
+  "file_size": 10240,
+  "expires_at": "2025-10-05T05:18:12.000000"
+}
+```
+
+**Example Response (Database format):**
+```json
+{
+  "success": true,
+  "count": {
+    "users": 5
+  },
+  "tables_generated": 1,
+  "total_records": 5,
+  "format": "database",
+  "message": "Successfully generated and exported 5 records for 1 tables",
+  "export_id": "abcdef12345",
+  "connection_summary": "sqlite:///./test.db",
+  "tables_inserted": ["users"],
+  "insert_time": "2025-10-05T04:18:12.0000"
+}
+```
+
+### File Management Endpoints
+
+#### GET /files/download/{filename}
+
+**Description:** Downloads a previously generated file.
+
+**Path Parameters:**
+- `filename` (string, required): The name of the file to download.
+
+**Example Request:**
+```
+GET /files/download/my_data_12345.xlsx
 ```
 
 **Response:**
+The response will be the file content with the appropriate `Content-Type` header.
+
+#### DELETE /files/cleanup
+
+**Description:** Cleans up expired temporary files from the server.
+
+**Response Schema (`application/json`):**
 ```json
 {
-    "success": true,
-    "schemas": {
-        "users": {
-            "type": "object",
-            "properties": {
-                "id": {"type": "integer", "primary_key": true},
-                "name": {"type": "string", "format": "name"},
-                "email": {"type": "string", "format": "email", "unique": true}
-            }
-        },
-        "orders": {
-            "type": "object", 
-            "properties": {
-                "id": {"type": "integer", "primary_key": true},
-                "user_id": {"type": "foreign", "ref": "users.id"},
-                "amount": {"type": "number", "minimum": 10.0, "maximum": 1000.0}
-            }
-        }
+  "type": "object",
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "description": "Whether the operation succeeded",
+      "default": true
     },
-    "table_count": 2,
-    "message": "Database schema retrieved successfully for 2 tables"
-}
-```
-
-### Multi-Table Data Generation
-
-#### Generate Related Data
-```http
-POST /data/generate
-```
-
-Generate data for multiple related tables with foreign constraints.
-
-**Request Body:**
-```json
-{
-    "schemas": {
-        "users": {
-            "type": "object",
-            "properties": {
-                "id": {"type": "integer", "primary_key": true},
-                "name": {"type": "string", "format": "name"},
-                "email": {"type": "string", "format": "email", "unique": true}
-            }
-        },
-        "orders": {
-            "type": "object",
-            "properties": {
-                "id": {"type": "integer", "primary_key": true},
-                "user_id": {"type": "foreign", "ref": "users.id"},
-                "amount": {"type": "number", "minimum": 10.0, "maximum": 1000.0}
-            }
-        }
+    "message": {
+      "type": "string",
+      "description": "Status message"
     },
-    "count": {
-        "users": 100,
-        "orders": 500
-    },
-    "format": "json"
+    "files_cleaned": {
+      "type": "integer",
+      "description": "Number of files cleaned up"
+    }
+  },
+  "required": [
+    "success",
+    "message",
+    "files_cleaned"
+  ]
 }
 ```
 
-**Response (JSON Format):**
+**Example Response:**
 ```json
 {
-    "success": true,
-    "data": {
-        "users": [
-            {"id": 1, "name": "John Doe", "email": "john@example.com"},
-            {"id": 2, "name": "Jane Smith", "email": "jane@example.com"}
-        ],
-        "orders": [
-            {"id": 1, "user_id": 1, "amount": 125.50},
-            {"id": 2, "user_id": 2, "amount": 75.25}
-        ]
-    },
-    "count": {"users": 100, "orders": 500},
-    "tables_generated": 2,
-    "total_records": 600,
-    "format": "json"
+  "success": true,
+  "message": "Cleaned up 5 expired files",
+  "files_cleaned": 5
 }
 ```
-
-**Response (File Export Formats):**
-```json
-{
-    "success": true,
-    "export_id": "uuid-here",
-    "filename": "datagen_20240101_120000.xlsx",
-    "download_url": "/files/download/datagen_20240101_120000.xlsx",
-    "file_size": 51200,
-    "expires_at": "2024-01-01T13:00:00",
-    "tables_generated": 2,
-    "total_records": 600,
-    "format": "excel"
-}
-```
-
-**Response (Database Export):**
-```json
-{
-    "success": true,
-    "export_id": "uuid-here", 
-    "connection_summary": "postgresql://***:***@localhost/dbname",
-    "tables_inserted": ["users", "orders"],
-    "total_records": 600,
-    "insert_time": "2024-01-01T12:00:00"
-}
-```
-
-### Supported Export Formats
-
-- **`json`** - Direct JSON response with generated data
-- **`excel`** - Multi-sheet Excel file with data and metadata  
-- **`sql`** - SQL INSERT statements for data import
-- **`database`** - Direct database seeding via connection string
 
 ## 📊 Advanced Schema Features
 
@@ -485,7 +1105,7 @@ COPY app/ ./app/
 COPY .env .
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.server:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
 Run with Docker:
@@ -506,10 +1126,10 @@ docker run -p 8000:8000 --env-file .env datagen-api
 pip install -r requirements.txt
 
 # Install additional dev tools
-pip install pytest pytest-asyncio pytest-cov httpx black flake8 mypy
+pip install pytest-asyncio pytest-cov httpx black flake8 mypy
 
 # Run in development mode with auto-reload
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.server:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Testing the API
@@ -646,7 +1266,7 @@ extracted_schemas = schema_response.json()["schemas"]
 # Step 2: Generate test data based on real schema
 generation_response = requests.post("http://localhost:8000/data/generate", json={
     "schemas": extracted_schemas,
-    "count": {table: 100 for table in extracted_schemas.keys()},
+    "count": {table: 10 for table in extracted_schemas.keys()},
     "format": "database",
     "connection_string": "postgresql://user:pass@localhost/myapp_test"
 })
@@ -660,7 +1280,6 @@ environments = {
     "development": {"users": 50, "orders": 200, "products": 100},
     "staging": {"users": 500, "orders": 2000, "products": 300},
     "testing": {"users": 10, "orders": 50, "products": 20}
-}
 
 for env, counts in environments.items():
     requests.post("http://localhost:8000/data/generate", json={
@@ -725,13 +1344,13 @@ performance_schemas = {
 # Generate 100K users with 1M transactions
 requests.post("http://localhost:8000/data/generate", json={
     "schemas": performance_schemas,
-    "count": {"users": 100000, "transactions": 1000000},
+    "count": {"users": 10000, "transactions": 100000},
     "format": "database",
     "connection_string": "postgresql://perf:pass@localhost/perf_test"
 })
 ```
 
-##  Performance & Scalability
+## Performance & Scalability
 
 ### Performance Benchmarks
 
@@ -1016,28 +1635,3 @@ We welcome contributions! Please follow these steps:
 - **Production Ready** - Proper error handling, logging, and monitoring
 - **Developer Friendly** - Easy to understand, test, and extend
 - **Scalable Architecture** - Ready for horizontal scaling
-
----
-
-## 🎯 Quick Reference
-
-### Essential Endpoints
-```http
-GET  /health                    # System health check
-GET  /stats                     # API usage statistics  
-GET  /database/schema          # Extract database schemas
-POST /data/generate            # Generate multi-table data
-GET  /files/download/{file}    # Download exported files
-```
-
-### Key Features Summary
-- ✅ Multi-table relational data generation
-- ✅ Database schema introspection  
-- ✅ Foreign handling
-- ✅ Multiple export formats (JSON, Excel, SQL, Database)
-- ✅ High-performance async API
-- ✅ Production-ready with monitoring
-- ✅ Comprehensive testing and documentation
-- ✅ Docker containerization support
-
-**Ready to generate amazing test data? Start with the `/docs` endpoint for interactive API exploration! 🚀**

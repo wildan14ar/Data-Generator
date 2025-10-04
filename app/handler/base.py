@@ -19,7 +19,7 @@ from .utils.file_utils import cleanup_expired_files
 logger = logging.getLogger(__name__)
 
 
-class DataManager:
+class BaseHandler:
     """Unified service untuk export dan seeding data."""
     
     def __init__(self, temp_dir: str = "temp"):
@@ -221,19 +221,3 @@ class DataManager:
                 "path": str(self.temp_dir),
                 "error": str(e)
             }
-
-
-# Global data manager instance
-_data_manager = None
-
-
-def get_data_manager() -> DataManager:
-    """Get global data manager instance.
-    
-    Returns:
-        DataManager instance
-    """
-    global _data_manager
-    if _data_manager is None:
-        _data_manager = DataManager()
-    return _data_manager

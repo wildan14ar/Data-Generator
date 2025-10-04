@@ -7,7 +7,7 @@ import logging
 from typing import Dict, List, Any, Optional
 
 from app.core.exceptions import GenerationError
-from .utils.cache_manager import clear_caches, get_ref_cache, set_ref_cache
+from .utils.cache_manager import clear_caches, set_ref_cache
 from .utils.dependency_resolver import determine_generation_order
 from .types.string_generator import generate_string
 from .types.number_generator import generate_number
@@ -15,6 +15,7 @@ from .types.boolean_generator import generate_boolean
 from .types.array_generator import generate_array
 from .types.object_generator import generate_object
 from .types.foreign_generator import generate_foreign
+from .types.enum_generator import generate_enum # New import
 from .types.primary_generator import generate_primary
 
 logger = logging.getLogger(__name__)
@@ -45,12 +46,12 @@ class BaseGenerator:
                 # Recursively normalize properties
                 normalized_props = {}
                 for prop_name, prop_schema in schema["properties"].items():
-                    normalized_props[prop_name] = normalize_schema(prop_schema)
+                    normalized_props[prop_name] = BaseGenerator.normalize_schema(prop_schema)
                 normalized["properties"] = normalized_props
         
         # Handle array schemas
         elif schema.get("type") == "array" and "items" in schema:
-            normalized["items"] = normalize_schema(schema["items"])
+            normalized["items"] = BaseGenerator.normalize_schema(schema["items"])
         
         # Remove introspector-specific metadata that generator doesn't need
         for key in ["title", "description"]:
@@ -77,7 +78,15 @@ class BaseGenerator:
         if not isinstance(schema, dict):
             raise GenerationError("Schema harus berupa dictionary")
 
-        # --- Handle default values ---
+        # --- ENUM ---
+        if "enum" in schema:
+            # If a default value is provided and is within the enum choices, use it.
+            # Otherwise, generate from enum.
+            if "default" in schema and schema["default"] is not None and schema["default"] in schema["enum"]:
+                return schema["default"]
+            return generate_enum(schema)
+
+        # --- Handle default values (only if enum is not present) ---
         if "default" in schema and schema["default"] is not None:
             default_value = schema["default"]
             # Convert string representations back to proper types
@@ -90,18 +99,18 @@ class BaseGenerator:
                     pass  # Fall through to generate random value
             return default_value
 
-        # --- ENUM ---
-        if "enum" in schema:
-            return random.choice(schema["enum"])
-
         t = schema.get("type")
         if not t:
             raise GenerationError("Schema harus memiliki property 'type'")
 
         # --- Primary Key ---
-        if schema.get("primary_key"):
+        if t == "primary":
             return generate_primary(schema, model_name, field_name)
-
+        
+        # --- Foreign ---
+        if t == "foreign":
+            return generate_foreign(schema)
+        
         # --- String ---
         if t == "string":
             return generate_string(schema, model_name, field_name)
@@ -116,15 +125,11 @@ class BaseGenerator:
 
         # --- Array ---
         if t == "array":
-            return generate_array(schema, generate_sample, model_name, field_name)
+            return generate_array(schema, BaseGenerator.generate_sample, model_name, field_name)
 
         # --- Object ---
         if t == "object":
-            return generate_object(schema, generate_sample, model_name, field_name)
-
-        # --- Foreign ---
-        if t == "foreign":
-            return generate_foreign(schema)
+            return generate_object(schema, BaseGenerator.generate_sample, model_name, field_name)
 
         raise GenerationError(f"Unsupported schema type: {t}")
 
@@ -176,12 +181,12 @@ class BaseGenerator:
                 logger.info(f"Generating {table_count} records for table '{table_name}'")
                 
                 # Normalize schema and generate data
-                normalized_schema = normalize_schema(table_schema)
+                normalized_schema = BaseGenerator.normalize_schema(table_schema)
                 table_data = []
                 
                 for i in range(table_count):
                     try:
-                        record = generate_sample(normalized_schema, table_name, None)
+                        record = BaseGenerator.generate_sample(normalized_schema, table_name, None)
                         table_data.append(record)
                     except Exception as e:
                         logger.error(f"Error generating record {i+1} for table '{table_name}': {e}")

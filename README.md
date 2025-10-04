@@ -243,7 +243,7 @@ Generate data for multiple related tables with foreign constraints.
 - **`array`** - Lists with configurable item counts and types
 - **`object`** - Nested structures with nested properties
 - **`foreign`** - Foreign to other generated tables
-- **`enum`** - Fixed set of possible values
+- **`enum`** - Fixed set of possible values, with optional `min_items`, `max_items`, and `default_items` to select multiple unique values.
 
 ### String Formats & Patterns
 
@@ -323,10 +323,9 @@ Generate data for multiple related tables with foreign constraints.
             "author_id": {"type": "foreign", "ref": "authors.id"},
             "category": {"enum": ["tech", "lifestyle", "business", "travel"]},
             "tags": {
-                "type": "array",
-                "items": {"type": "string"},
-                "minItems": 1,
-                "maxItems": 5
+                "enum": ["tech", "programming", "webdev", "ai", "cloud", "data"],
+                "min_items": 1,
+                "max_items": 3
             },
             "published": {"type": "boolean"},
             "views": {"type": "integer", "minimum": 0, "maximum": 100000}

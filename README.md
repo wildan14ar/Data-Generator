@@ -9,10 +9,10 @@ Modern REST API untuk generate data dummy berkualitas tinggi berdasarkan JSON Sc
 
 ## ✨ Key Features
 
-- 🔄 **Multi-Table Generation** - Generate relational data with foreign key constraints
+- 🔄 **Multi-Table Generation** - Generate relational data with foreign constraints
 - 🗄️ **Database Introspection** - Auto-generate schemas from existing database tables
 - 📊 **Multiple Export Formats** - JSON, Excel, SQL, direct database seeding
-- 🔗 **Foreign Key Relations** - Automatic reference handling between tables
+- 🔗 **Foreign Relations** - Automatic foreign handling between tables
 - ⚡ **High Performance** - Async FastAPI with batch processing
 - 🎯 **Schema Validation** - Comprehensive JSON Schema support
 - 📈 **Usage Statistics** - Built-in API usage tracking
@@ -129,7 +129,7 @@ Automatically extract schemas from existing database tables.
             "type": "object", 
             "properties": {
                 "id": {"type": "integer", "primary_key": true},
-                "user_id": {"type": "ref", "ref": "users.id"},
+                "user_id": {"type": "foreign", "ref": "users.id"},
                 "amount": {"type": "number", "minimum": 10.0, "maximum": 1000.0}
             }
         }
@@ -146,7 +146,7 @@ Automatically extract schemas from existing database tables.
 POST /data/generate
 ```
 
-Generate data for multiple related tables with foreign key constraints.
+Generate data for multiple related tables with foreign constraints.
 
 **Request Body:**
 ```json
@@ -164,7 +164,7 @@ Generate data for multiple related tables with foreign key constraints.
             "type": "object",
             "properties": {
                 "id": {"type": "integer", "primary_key": true},
-                "user_id": {"type": "ref", "ref": "users.id"},
+                "user_id": {"type": "foreign", "ref": "users.id"},
                 "amount": {"type": "number", "minimum": 10.0, "maximum": 1000.0}
             }
         }
@@ -242,7 +242,7 @@ Generate data for multiple related tables with foreign key constraints.
 - **`boolean`** - True/false values with random distribution
 - **`array`** - Lists with configurable item counts and types
 - **`object`** - Nested structures with nested properties
-- **`ref`** - Foreign key references to other generated tables
+- **`foreign`** - Foreign to other generated tables
 - **`enum`** - Fixed set of possible values
 
 ### String Formats & Patterns
@@ -258,7 +258,7 @@ Generate data for multiple related tables with foreign key constraints.
 ### Relationship Handling
 
 - **Primary Keys** - Auto-increment integer IDs per table
-- **Foreign Keys** - Automatic reference resolution between tables  
+- **Foreigns** - Automatic foreign resolution between tables  
 - **Unique Constraints** - Ensures uniqueness across generated values
 - **Dependency Resolution** - Smart table generation order based on relationships
 
@@ -291,8 +291,8 @@ Generate data for multiple related tables with foreign key constraints.
         "type": "object",
         "properties": {
             "id": {"type": "integer", "primary_key": true},
-            "user_id": {"type": "ref", "ref": "users.id"},
-            "product_id": {"type": "ref", "ref": "products.id"},
+            "user_id": {"type": "foreign", "ref": "users.id"},
+            "product_id": {"type": "foreign", "ref": "products.id"},
             "quantity": {"type": "integer", "minimum": 1, "maximum": 5},
             "status": {"enum": ["pending", "processing", "shipped", "delivered"]},
             "order_date": {"type": "string", "format": "date"}
@@ -320,7 +320,7 @@ Generate data for multiple related tables with foreign key constraints.
             "id": {"type": "integer", "primary_key": true},
             "title": {"type": "string", "minLength": 10, "maxLength": 200},
             "content": {"type": "string", "minLength": 100, "maxLength": 5000},
-            "author_id": {"type": "ref", "ref": "authors.id"},
+            "author_id": {"type": "foreign", "ref": "authors.id"},
             "category": {"enum": ["tech", "lifestyle", "business", "travel"]},
             "tags": {
                 "type": "array",
@@ -336,8 +336,8 @@ Generate data for multiple related tables with foreign key constraints.
         "type": "object",
         "properties": {
             "id": {"type": "integer", "primary_key": true},
-            "post_id": {"type": "ref", "ref": "posts.id"},
-            "author_id": {"type": "ref", "ref": "authors.id"},
+            "post_id": {"type": "foreign", "ref": "posts.id"},
+            "author_id": {"type": "foreign", "ref": "authors.id"},
             "content": {"type": "string", "minLength": 5, "maxLength": 1000},
             "created_at": {"type": "string", "format": "datetime"}
         }
@@ -362,7 +362,7 @@ Generate data for multiple related tables with foreign key constraints.
         "type": "object", 
         "properties": {
             "id": {"type": "string", "format": "uuid", "primary_key": true},
-            "account_id": {"type": "ref", "ref": "accounts.id"},
+            "account_id": {"type": "foreign", "ref": "accounts.id"},
             "amount": {"type": "number", "minimum": -10000, "maximum": 10000},
             "type": {"enum": ["debit", "credit", "transfer", "fee"]},
             "description": {"type": "string", "maxLength": 200},
@@ -541,7 +541,7 @@ curl -X POST "http://localhost:8000/data/generate" \
         "type": "object", 
         "properties": {
           "id": {"type": "integer", "primary_key": true},
-          "user_id": {"type": "ref", "ref": "users.id"},
+          "user_id": {"type": "foreign", "ref": "users.id"},
           "title": {"type": "string", "maxLength": 100}
         }
       }
@@ -715,7 +715,7 @@ performance_schemas = {
         "type": "object", 
         "properties": {
             "id": {"type": "integer", "primary_key": True},
-            "user_id": {"type": "ref", "ref": "users.id"},
+            "user_id": {"type": "foreign", "ref": "users.id"},
             "amount": {"type": "number", "minimum": 1.0, "maximum": 10000.0},
             "type": {"enum": ["purchase", "refund", "transfer"]},
             "timestamp": {"type": "string", "format": "datetime"}
@@ -732,7 +732,7 @@ requests.post("http://localhost:8000/data/generate", json={
 })
 ```
 
-## � Performance & Scalability
+##  Performance & Scalability
 
 ### Performance Benchmarks
 
@@ -840,8 +840,8 @@ curl -X POST http://localhost:8000/data/generate -d '{
 **Resolution**: Review schema constraints and references
 
 ```bash
-# Example: Invalid reference
-{"type": "ref", "ref": "nonexistent.id"}
+# Example: Invalid foreign
+{"type": "foreign", "ref": "nonexistent.id"}
 # Fix: Ensure referenced table exists in schemas
 ```
 
@@ -875,15 +875,15 @@ curl -X GET http://localhost:8000/database/schema -d '{
 }'
 ```
 
-#### Issue: Foreign key reference not working
+#### Issue: Foreign not working
 ```json
 // Ensure parent table is generated first
 {
     "schemas": {
         "users": {...},      // Parent table
-        "orders": {          // Child table with reference
+        "orders": {          // Child table with foreign
             "properties": {
-                "user_id": {"type": "ref", "ref": "users.id"}
+                "user_id": {"type": "foreign", "ref": "users.id"}
             }
         }
     }
@@ -988,7 +988,7 @@ We welcome contributions! Please follow these steps:
 
 #### Architecture Overhaul
 - **🏗️ Clean Architecture** - Properly layered application structure
-- **🔄 Multi-Table Support** - Generate relational data with foreign keys
+- **🔄 Multi-Table Support** - Generate relational data with foreigns
 - **🗄️ Database Introspection** - Auto-extract schemas from existing databases
 - **📊 Multiple Export Formats** - JSON, Excel, SQL, direct database seeding
 
@@ -1006,7 +1006,7 @@ We welcome contributions! Please follow these steps:
 
 #### Data Quality
 - **🎯 Advanced Schema Support** - Enhanced JSON Schema features
-- **🔗 Foreign Key Relations** - Intelligent reference handling
+- **🔗 Foreign Relations** - Intelligent foreign handling
 - **📊 Data Validation** - Comprehensive input validation
 - **🎲 Deterministic Generation** - Reproducible data with seed support
 
@@ -1034,7 +1034,7 @@ GET  /files/download/{file}    # Download exported files
 ### Key Features Summary
 - ✅ Multi-table relational data generation
 - ✅ Database schema introspection  
-- ✅ Foreign key relationship handling
+- ✅ Foreign handling
 - ✅ Multiple export formats (JSON, Excel, SQL, Database)
 - ✅ High-performance async API
 - ✅ Production-ready with monitoring

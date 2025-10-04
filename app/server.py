@@ -88,14 +88,14 @@ def create_app() -> FastAPI:
 
     # System endpoints (health, stats) - directly in main app
     @app.get("/health", response_model=HealthResponse, tags=["System"])
-    async def health_check():
+    async def health_check(request: Request):
         """Health check endpoint."""
+        start_time = getattr(request.app.state, "start_time", datetime.now())
+        uptime = datetime.now() - start_time
         return HealthResponse(
             timestamp=datetime.now().isoformat(),
             version=settings.VERSION,
-            uptime=str(
-                datetime.now() - datetime.now()
-            ),  # Will be overridden by app state
+            uptime=str(uptime),
         )
 
     @app.get("/stats", response_model=StatsResponse, tags=["System"])

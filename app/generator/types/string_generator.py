@@ -48,12 +48,11 @@ def generate_string(schema: Dict[str, Any], model_name: Optional[str] = None, fi
             start_date = current_date - timedelta(days=5*365)  # 5 years back
             end_date = current_date + timedelta(days=5*365)    # 5 years forward
             return fake.date_between(start_date=start_date, end_date=end_date).strftime('%Y-%m-%d')
-        if fmt == "datetime":  # Support datetime format from introspector
-            # Generate datetime within 5 years back and forward from now (YYYY-MM-DD format only, no time)
-            current_date = datetime.now().date()
-            start_date = current_date - timedelta(days=5*365)  # 5 years back
-            end_date = current_date + timedelta(days=5*365)    # 5 years forward
-            return fake.date_between(start_date=start_date, end_date=end_date).strftime('%Y-%m-%d')
+        if fmt == "datetime":
+            # Generate datetime within 5 years back and forward from now
+            start_date = datetime.now() - timedelta(days=5*365)
+            end_date = datetime.now() + timedelta(days=5*365)
+            return fake.date_time_between(start_date=start_date, end_date=end_date).isoformat()
         if fmt == "name":
             return fake.name()
         if fmt == "uri":  # Support URI format from introspector

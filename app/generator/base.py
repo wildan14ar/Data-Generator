@@ -14,7 +14,7 @@ from .types.number_generator import generate_number
 from .types.boolean_generator import generate_boolean
 from .types.array_generator import generate_array
 from .types.object_generator import generate_object
-from .types.reference_generator import generate_reference
+from .types.foreign_generator import generate_foreign
 from .types.primary_generator import generate_primary
 
 logger = logging.getLogger(__name__)
@@ -122,9 +122,9 @@ class BaseGenerator:
         if t == "object":
             return generate_object(schema, generate_sample, model_name, field_name)
 
-        # --- Reference ---
-        if t == "ref":
-            return generate_reference(schema)
+        # --- Foreign ---
+        if t == "foreign":
+            return generate_foreign(schema)
 
         raise GenerationError(f"Unsupported schema type: {t}")
 

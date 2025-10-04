@@ -156,6 +156,77 @@ class DataGenerateRequest(BaseModel):
         return v
 
 
+class CreateSchemaRequest(BaseModel):
+    """Request model for creating database schema."""
+
+    connection_string: str = Field(..., description="Database connection string")
+    schemas: Dict[str, Dict[str, Any]] = Field(
+        ..., description="Schemas to create (table_name -> schema)"
+    )
+    dialect: str = Field("postgresql", description="SQL dialect (postgresql, mysql, sqlite)")
+    drop_existing: bool = Field(False, description="Whether to drop existing tables")
+    create_order: Optional[List[str]] = Field(
+        None, description="Order of table creation (for foreign key dependencies)"
+    )
+
+    @validator("connection_string")
+    def validate_connection_string(cls, v):
+        """Validate connection string format."""
+        if not v or len(v.strip()) == 0:
+            raise ValueError("Connection string cannot be empty")
+
+        supported_drivers = ["postgresql", "mysql", "sqlite", "mssql"]
+        if not any(driver in v.lower() for driver in supported_drivers):
+            raise ValueError(
+                f"Unsupported database driver. Supported: {supported_drivers}"
+            )
+
+        return v
+
+    @validator("schemas")
+    def validate_schemas(cls, v):
+        """Validate that all schemas are valid."""
+        if not isinstance(v, dict):
+            raise ValueError("Schemas must be a dictionary")
+
+        for table_name, schema in v.items():
+            if not isinstance(schema, dict):
+                raise ValueError(
+                    f"Schema for table '{table_name}' must be a dictionary"
+                )
+            if "type" not in schema:
+                raise ValueError(
+                    f"Schema for table '{table_name}' must have a 'type' property"
+                )
+
+        return v
+
+    @validator("dialect")
+    def validate_dialect(cls, v):
+        """Validate SQL dialect."""
+        supported_dialects = ["postgresql", "mysql", "sqlite", "mssql"]
+        if v.lower() not in supported_dialects:
+            raise ValueError(f"Unsupported dialect. Supported: {supported_dialects}")
+        return v.lower()
+
+
+class CreateSchemaResponse(BaseModel):
+    """Response model for creating database schema."""
+
+    success: bool = Field(True, description="Whether the operation succeeded")
+    tables_created: Dict[str, bool] = Field(
+        ..., description="Creation status for each table"
+    )
+    tables_created_count: int = Field(..., description="Number of tables successfully created")
+    total_tables: int = Field(..., description="Total number of tables attempted")
+    message: str = Field(
+        "Database schema created successfully", description="Status message"
+    )
+    sql_statements: Optional[List[str]] = Field(
+        None, description="Generated SQL statements (if available)"
+    )
+
+
 class DataGenerateResponse(BaseModel):
     """Response model for multiple table generation."""
 

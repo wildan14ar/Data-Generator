@@ -2,7 +2,7 @@
 Data management service package (Export + Seeding)
 """
 
-from .core.manager import DataManager, get_data_manager
+from .base import DataManager, get_data_manager
 from .types.json import JsonExporter
 from .types.excel import ExcelExporter
 from .types.sql import SqlExporter

@@ -15,10 +15,12 @@ from app.config.schemas import (
     DataGenerateResponse,
     DatabaseSchemaRequest,
     DatabaseSchemaResponse,
+    CreateSchemaRequest,
+    CreateSchemaResponse,
 )
-from app.services.generator import generate_data
-from app.introspector import get_database_schema
-from app.services.exporter import get_exporter
+from app.generator import generate_data
+from app.schema import get_database_schema, create_table_from_schema, create_database_from_schema
+from app.handler import get_data_manager
 from app.config.Settings import get_settings
 from app.config.exceptions import SchemaIntrospectionError, DatabaseError, ExportError
 
@@ -112,6 +114,58 @@ async def introspect_database_schema(request: DatabaseSchemaRequest):
         )
 
 
+@router.post(
+    "/database/schema/create",
+    response_model=CreateSchemaResponse,
+    tags=["Database Operations"],
+)
+async def create_database_schema(request: CreateSchemaRequest):
+    """Create database tables from JSON Schema."""
+    try:
+        logger.info(f"Creating {len(request.schemas)} tables in database")
+
+        # Create tables from schemas
+        results = create_database_from_schema(
+            connection_string=request.connection_string,
+            database_schema=request.schemas,
+            dialect=request.dialect,
+            drop_existing=request.drop_existing,
+            create_order=request.create_order
+        )
+
+        tables_created_count = sum(1 for success in results.values() if success)
+        
+        # Generate success message
+        if tables_created_count == len(request.schemas):
+            message = f"All {tables_created_count} tables created successfully"
+        else:
+            failed_count = len(request.schemas) - tables_created_count
+            message = f"{tables_created_count} tables created, {failed_count} failed"
+
+        return CreateSchemaResponse(
+            tables_created=results,
+            tables_created_count=tables_created_count,
+            total_tables=len(request.schemas),
+            message=message,
+        )
+
+    except DatabaseError as e:
+        logger.error(f"Database error during schema creation: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Database connection failed: {str(e)}",
+        )
+    except SchemaIntrospectionError as e:
+        logger.error(f"Schema creation error: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.error(f"Unexpected error during schema creation: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred during schema creation",
+        )
+
+
 # ============================================
 # Data Generation Endpoints
 # ============================================
@@ -151,9 +205,9 @@ async def generate_endpoint(request: DataGenerateRequest, http_request: Request)
             )
 
         else:
-            # Use exporter service untuk formats lain
-            exporter = get_exporter()
-            export_result = exporter.export_data(
+            # Use data manager untuk formats lain
+            data_manager = get_data_manager()
+            export_result = data_manager.export_data(
                 data=table_data,
                 format=request.format.value,
                 connection_string=request.connection_string,
@@ -213,8 +267,8 @@ async def generate_endpoint(request: DataGenerateRequest, http_request: Request)
 async def download_file(filename: str):
     """Download generated file."""
     try:
-        exporter = get_exporter()
-        file_path = exporter.temp_dir / filename
+        data_manager = get_data_manager()
+        file_path = data_manager.temp_dir / filename
 
         if not file_path.exists():
             logger.error(f"File not found: {filename}")
@@ -254,8 +308,8 @@ async def download_file(filename: str):
 async def cleanup_expired_files():
     """Cleanup expired temporary files."""
     try:
-        exporter = get_exporter()
-        cleaned_count = exporter.cleanup_expired_files(max_age_hours=1)
+        data_manager = get_data_manager()
+        cleaned_count = data_manager.cleanup_expired_files(max_age_hours=1)
 
         return {
             "success": True,

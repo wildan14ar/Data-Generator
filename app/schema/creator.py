@@ -8,7 +8,7 @@ from sqlalchemy import create_engine, text, MetaData, Table, Column, Integer, St
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql import ddl
 
-from app.config.exceptions import SchemaIntrospectionError, DatabaseError
+from app.core.exceptions import SchemaIntrospectionError, DatabaseError
 from .converter import generate_create_table_sql, json_schema_to_sql_type
 
 

@@ -7,7 +7,7 @@ from typing import Dict, List, Any
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.config.exceptions import SchemaIntrospectionError, DatabaseError
+from app.core.exceptions import SchemaIntrospectionError, DatabaseError
 from .converter import convert_table_to_json_schema
 
 

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Dict, List, Any
 from datetime import datetime
 
-from app.config.exceptions import ExportError
+from app.core.exceptions import ExportError
 
 logger = logging.getLogger(__name__)
 

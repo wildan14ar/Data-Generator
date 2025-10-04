@@ -5,7 +5,7 @@ Array type data generation
 import random
 from typing import Dict, Any, List, Optional
 
-from app.config.exceptions import GenerationError
+from app.core.exceptions import GenerationError
 
 
 def generate_array(schema: Dict[str, Any], generate_sample_func, model_name: Optional[str] = None, field_name: Optional[str] = None) -> List[Any]:

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
-from app.config.exceptions import ExportError, DatabaseError
+from app.core.exceptions import ExportError, DatabaseError
 from .types.json import JsonExporter
 from .types.excel import ExcelExporter
 from .types.sql import SqlExporter

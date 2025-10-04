@@ -5,7 +5,7 @@ Reference type data generation
 import random
 from typing import Dict, Any
 
-from app.config.exceptions import GenerationError
+from app.core.exceptions import GenerationError
 from ..utils.cache_manager import get_ref_cache
 
 

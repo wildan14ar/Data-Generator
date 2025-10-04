@@ -11,12 +11,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.route import router
-from app.config.schemas import (
+from app.core.schemas import (
     HealthResponse,
     StatsResponse,
 )
-from app.config.Settings import get_settings
-from app.config.exceptions import setup_exception_handlers
+from app.core.Settings import get_settings
+from app.core.exceptions import setup_exception_handlers
 
 
 # Configure logging

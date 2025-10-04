@@ -7,7 +7,7 @@ from typing import List, Dict, Any
 from sqlalchemy import create_engine, Table, MetaData, exc
 from sqlalchemy.engine import Engine
 
-from app.config.exceptions import DatabaseError
+from app.core.exceptions import DatabaseError
 
 logger = logging.getLogger(__name__)
 
